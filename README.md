@@ -1,39 +1,236 @@
-# openGauss-wasm
+A complete and mature WebAssembly runtime for openGauss based on [Wasmtime](https://wasmtime.dev/).
+It's an original way to extend your favorite database capabilities.
 
-#### 介绍
-{**以下是 Gitee 平台说明，您可以替换此简介**
-Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN）。专为开发者提供稳定、高效、安全的云端软件开发协作平台
-无论是个人、团队、或是企业，都能够用 Gitee 实现代码托管、项目管理、协作开发。企业项目请看 [https://gitee.com/enterprises](https://gitee.com/enterprises)}
+> Note This project is inspired by [wasmer-postgres](https://github.com/wasmerio/wasmer-postgres)
 
-#### 软件架构
-软件架构说明
+Features:
+
+  * **Easy to use**: The `wasmtime` API mimics the standard WebAssembly API,
+  * **Fast**: `wasmtime` executes the WebAssembly modules as fast as
+    possible, close to **native speed**,
+  * **Safe**: All calls to WebAssembly will be fast, but more
+    importantly, completely safe and sandboxed.
+
+> Note: The project is still in heavy development. This is a
+0.1.0 version. Some API are missing and are under implementation. But
+it's fun to play with it.
+
+# Installation
+
+The project comes in two parts:
+
+  1. A shared library, and
+  2. A PL/pgSQL extension.
+  
+To compile the former, the wasmtime-c-api header files are required and be placed alongside the "openGauss-server" code. 
+You can download the header file from [here](https://github.com/bytecodealliance/wasmtime/releases).
+
+After that, run `CREATE EXTENSION wasm_executor` in a
+openGauss shell. Two new functions will appear: `wasm_new_instance` and `wasm_new_instance_wat`; They must be
+called with the absolute path to the shared library. It looks like
+this:
+
+```shell
+$ # Build the shared library.
+$ make
+
+$ # Install the extension in the Postgres opengauss
+$ make install
+
+$ # Activate and initialize the extension.
+$ gsql -d postgres -c 'CREATE EXTENSION wasm_executor'
+```
+
+And you are ready to go!
 
 
-#### 安装教程
+# Usage & documentation
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+Consider the `examples/sum.rs` program:
 
-#### 使用说明
+```rust
+#[no_mangle]
+pub extern fn sum(x: i32, y: i32) -> i32 {
+    x + y
+}
+```
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+Once compiled to WebAssembly, one obtains a similar WebAssembly binary
+to `examples/sum.wasm`. To use the `sum` exported function, first, 
+create a new instance of the WebAssembly module, and second, 
+call the `sum` function.
 
-#### 参与贡献
+To instantiate a WebAssembly module, the `wasm_new_instance` function
+must be used. It has two arguments:
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+  1. The absolute path to the WebAssembly module, and
+  2. A namespace used to prefix exported functions in SQL.
+
+For instance, calling
+`wasm_new_instance('/path/to/sum.wasm', 'wasm')` will create the
+`wasm_sum` function that is a direct call to the `sum` exported function
+of the WebAssembly instance. Thus:
+
+```sql
+-- New instance of the `sum.wasm` WebAssembly module.
+SELECT wasm_new_instance('/absolute/path/to/sum.wasm', 'wasm');
+
+-- Call a WebAssembly exported function!
+SELECT wasm_sum(1, 2);
+
+--  wasm_sum
+-- --------
+--       3
+-- (1 row)
+```
+
+Isn't it awesome? Calling Rust from openGauss through WebAssembly!
+
+Let's inspect a little bit further the `wasm_sum` function:
+
+```sql
+\x
+\df+ wasm_sum
+Schema              | public
+Name                | wasm_sum
+Result data type    | integer
+Argument data types | integer, integer
+Type                | normal
+Volatility          | volatile
+Parallel            | unsafe
+Owner               | ...
+Language            | plpgsql
+Source code         | ...
+Description         |
+fencedmode          | f
+propackage          | f
+prokind             | f
+```
+
+The openGauss `wasm_sum` signature is `(integer, integer) -> integer`,
+which maps the Rust `sum` signature `(i32, i32) -> i32`.
+
+So far, only the WebAssembly types `i32` and `i64` are
+supported; they respectively map to `integer` and `bigint`
+in openGauss. Floats are partly implemented for the moment.
+
+# Quickstart
+
+To get your hands on openGauss with wasm, we recommend using the Docker image.
+Download the docker image firstlly.
+
+```shell
+docker pull heguofeng/opengauss-wasm:1.0.0
+```
+Then run it.
+```shell
+docker run -it heguofeng/opengauss-wasm:1.0.0 bash
+```
+And enjoy it.
 
 
-#### 特技
+## Inspect a WebAssembly instance
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+The extension provides two ways to initilize a WebAssembly instance. As you can
+see from the functions name show above, one way is to use `wasm_new_instance` from
+.wasm file compiled from other languages, the other way is to use `wasm_new_instance_wat`
+from .wat file, which is the text format of wasm.
+
+And, the extension provides two tables, gathered together in
+the `wasm` foreign schema:
+
+  * `wasm.instances` is a table with the `id` and `wasm_file` columns,
+    respectively for the instance ID, and the path of the WebAssembly
+    module,
+  * `wasm.exported_functions` is a table with the `instanceid`,
+    `funcname`, `inputs` and `output` columns, respectively for the
+    instance ID of the exported function, its name, its input types
+    (already formatted for Postgres), and its output types (already
+    formatted for Postgres).
+
+Let's see:
+
+```sql
+-- Select all WebAssembly instances.
+SELECT * FROM wasm.instances;
+
+--      id        |          wasm_file
+-- ---------------+-------------------------------
+--  2785875771    | /absolute/path/to/sum.wasm
+--  3780612139    | /absolute/path/to/gcd.wat
+-- (1 row)
+
+-- Select all exported functions for a specific instance.
+SELECT
+    funcname,
+    inputs,
+    outputs
+FROM
+    wasm.exported_functions
+WHERE
+    instanceid = 2785875771;
+
+--   name  |     inputs      | outputs
+-- --------+-----------------+---------
+--  wasm_sum | integer,integer | integer
+-- (1 row)
+```
+
+# Benchmarks
+
+Benchmarks are useless most of the time, but it shows that WebAssembly
+can be a credible alternative to procedural languages such as
+PL/pgSQL. Please, don't take those numbers for granted, it can change
+at any time, but it shows promising results:
+
+<table>
+  <thead>
+    <tr>
+      <th>Benchmark</th>
+      <th>Runtime</th>
+      <th align="right">Time (ms)</th>
+      <th align="right">Ratio</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="2">Fibonacci (n = 50)</td>
+      <td><code>openGauss-wasm-executor</code></td>
+      <td align="right">0.765</td>
+      <td align="right">1×</td>
+    </tr>
+    <tr>
+      <td>PL/pgSQL</td>
+      <td align="right">1.714</td>
+      <td align="right">2×</td>
+    </tr>
+    <tr>
+      <td rowspan="2">Fibonacci (n = 500)</td>
+      <td><code>openGauss-wasm-executor</code></td>
+      <td align="right">0.794</td>
+      <td align="right">1×</td>
+    </tr>
+    <tr>
+      <td>PL/pgSQL</td>
+      <td align="right">9.746</td>
+      <td align="right">12×</td>
+    </tr>
+    <tr>
+      <td rowspan="2">Fibonacci (n = 5000)</td>
+      <td><code>openGauss-wasm-executor</code></td>
+      <td align="right">0.820</td>
+      <td align="right">1×</td>
+    </tr>
+    <tr>
+      <td>PL/pgSQL</td>
+      <td align="right">92.720</td>
+      <td align="right">113×</td>
+    </tr>
+  </tbody>
+</table>
+
+# License
+
+The entire project is under the MulanPSL2 License. Please read [the `LICENSE` file][license].
+
+[license]: http://license.coscl.org.cn/MulanPSL2/
