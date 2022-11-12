@@ -30,12 +30,12 @@ extern "C" Datum wasm_invoke_function_10(PG_FUNCTION_ARGS);
 typedef struct TupleInstanceState {
     TupleDesc tupd;
     std::map<int64, std::string>::iterator currindex;
-    std::map<int64, std::string*>::iterator lastindex;
+    std::map<int64, std::string>::iterator lastindex;
 } TupleInstanceState;
 
 typedef struct WasmFuncInfo {
     std::string funcname;
-    std::vector<string> inputs;
+    std::vector<std::string> inputs;
     std::string outputs;
 } WasmFuncInfo;
 
@@ -87,13 +87,14 @@ static WasmFuncInfo* find_exported_func(int64 instanceid, std::string funcname)
     if (functions == NULL) {
         ereport(ERROR, (errmsg("wasm_executor: function infos of instance %ld is not find", instanceid)));
     }
-    for (std::vector<WasmFuncInfo*>::iterator curr = functions.begin(); curr != functions.end(); curr++) {
+    for (std::vector<WasmFuncInfo*>::iterator curr = functions->begin(); curr != functions->end(); curr++) {
         if ((*curr)->funcname == funcname) {
             return *curr;
         }
     }
 
     ereport(ERROR, (errmsg("wasm_executor: function %s not exist in instance %ld ", funcname.c_str(), instanceid)));
+    return NULL;
 }
 
 static int64 generate_uuid(Datum input) 
@@ -116,7 +117,7 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
     WasmEdge_VMContext *vm_conext = WasmEdge_VMCreate(config_context, NULL);
 
     WasmEdge_Value params[args.size()];
-    for (int i = 0; i < args.size(); ++i) {
+    for (unsigned int i = 0; i < args.size(); ++i) {
         if (funcinfo->inputs[i] == "integer") {
             params[i] = WasmEdge_ValueGenI32(args[i]);
         } else {
@@ -126,11 +127,11 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
 
     WasmEdge_Value result[1];
     WasmEdge_String wasm_func = WasmEdge_StringCreateByCString(funcname);
-    WasmEdge_Result ret = WasmEdge_VMRunWasmFromFile(vm_conext, wasm_file, wasm_func, params, args.size(), result, 1);
+    WasmEdge_Result ret = WasmEdge_VMRunWasmFromFile(vm_conext, wasm_file.c_str(), wasm_func, params, args.size(), result, 1);
     if (!WasmEdge_ResultOK(ret)) {
         WasmEdge_VMDelete(vm_conext);
         WasmEdge_ConfigureDelete(config_context);
-        WasmEdge_StringDelete(FuncName);
+        WasmEdge_StringDelete(wasm_func);
         ereport(ERROR, (errmsg("wasm_executor: call func %s failed", funcname)));
     } 
     int64 ret_val = 0;
@@ -142,7 +143,7 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
     /* Resources deallocations. */
     WasmEdge_VMDelete(vm_conext);
     WasmEdge_ConfigureDelete(config_context);
-    WasmEdge_StringDelete(FuncName);
+    WasmEdge_StringDelete(wasm_func);
 
     return ret_val;
 }
@@ -166,26 +167,23 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
     exported_functions.insert(std::pair<int64, std::vector<WasmFuncInfo *>*>(instanceid, functions));
     
     WasmEdge_StoreContext *store_cxt = WasmEdge_StoreCreate();
-    WasmEdge_VMContext *vm_cxt = WasmEdge_VMCreate(NULL, StoreCxt);
+    WasmEdge_VMContext *vm_cxt = WasmEdge_VMCreate(NULL, store_cxt);
 
     WasmEdge_VMLoadWasmFromFile(vm_cxt, wasm_file.c_str());
     WasmEdge_VMValidate(vm_cxt);
     WasmEdge_VMInstantiate(vm_cxt);
-
-    uint32_t func_num = WasmEdge_VMGetFunctionListLength(vm_cxt);
     
     WasmEdge_String func_name_list[BUF_LEN];
-    WasmEdge_FunctionTypeContext *func_type_list[BUF_LEN];
+    const WasmEdge_FunctionTypeContext *func_type_list[BUF_LEN];
     /*
      * If the list length is larger than the buffer length, the overflowed data
      * will be discarded.
      */
-    uint32_t rel_func_num = WasmEdge_VMGetFunctionList(_cxt, func_name_list, func_type_list, BUF_LEN);
-
-    for (int32 i = 0; i < rel_func_num && i < BUF_LEN; ++i) {
+    uint32_t rel_func_num = WasmEdge_VMGetFunctionList(vm_cxt, func_name_list, func_type_list, BUF_LEN);
+    for (unsigned int i = 0; i < rel_func_num && i < BUF_LEN; ++i) {
         char tmp_buffer[BUF_LEN];
         uint32_t func_name_len = WasmEdge_StringCopy(func_name_list[i], tmp_buffer, sizeof(tmp_buffer));
-        elog(DEBUG, "wasm_executor: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
+        elog(DEBUG1, "wasm_executor: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
 
         uint32_t param_nums = WasmEdge_FunctionTypeGetParametersLength(func_type_list[i]);
         if (param_nums > MAX_PARAMS) {
@@ -205,7 +203,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
 
         enum WasmEdge_ValType param_buffer[10]; // we allow max 10 parameters
         param_nums = WasmEdge_FunctionTypeGetParameters(func_type_list[i], param_buffer, 10);
-        for (int32 j = 0; j < param_nums; ++j) {
+        for (unsigned int j = 0; j < param_nums; ++j) {
             if (param_buffer[j] == WasmEdge_ValType_I32) {
                 funcinfo->inputs.push_back("integer");
             } else if (param_buffer[j] == WasmEdge_ValType_I64) {
@@ -228,7 +226,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
             ereport(ERROR, (errmsg("wasm_executor: not support the value type(%d) for now", param_buffer[0])));
         }
 
-        funcinfo->funcname = std::string(export_name, namelen);
+        funcinfo->funcname = std::string(tmp_buffer, func_name_len);
         functions->push_back(funcinfo);
     }
 
@@ -373,8 +371,8 @@ Datum wasm_get_exported_functions(PG_FUNCTION_ARGS)
 
         WasmFuncInfo *funcinfo = *inter_call_data->currindex;
         values[0] = CStringGetTextDatum(funcinfo->funcname.c_str());
-        String inputs;
-        for (std::vector<std::string>::iterator curr = funcinfo->inputs.begin(); curr != funcinfo.end(); curr++) {
+        std::string inputs;
+        for (std::vector<std::string>::iterator curr = funcinfo->inputs.begin(); curr != funcinfo->inputs.end(); curr++) {
             inputs += *curr;
             inputs += ",";
         }
