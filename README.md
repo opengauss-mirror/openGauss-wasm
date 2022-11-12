@@ -1,12 +1,12 @@
-A complete and mature WebAssembly runtime for openGauss based on [Wasmtime](https://wasmtime.dev/).
+A complete and mature WebAssembly runtime for openGauss based on [WasmEdge](https://wasmedge.org/book/zh/index.html).
 It's an original way to extend your favorite database capabilities.
 
 > Note This project is inspired by [wasmer-postgres](https://github.com/wasmerio/wasmer-postgres)
 
 Features:
 
-  * **Easy to use**: The `wasmtime` API mimics the standard WebAssembly API,
-  * **Fast**: `wasmtime` executes the WebAssembly modules as fast as
+  * **Easy to use**: The `wasmedge` API mimics the standard WebAssembly API,
+  * **Fast**: `wasmedge` executes the WebAssembly modules as fast as
     possible, close to **native speed**,
   * **Safe**: All calls to WebAssembly will be fast, but more
     importantly, completely safe and sandboxed.
@@ -22,8 +22,10 @@ The project comes in two parts:
   1. A shared library, and
   2. A PL/pgSQL extension.
   
-To compile the former, the wasmtime-c-api header files are required and be placed alongside the "openGauss-server" code. 
-You can download the header file from [here](https://github.com/bytecodealliance/wasmtime/releases).
+To compile the former, the wasmedge should have been installed. 
+You can install the wasmedge as simple as 
+
+Refer to [https://wasmedge.org/book/en/quick_start/install.html](https://wasmedge.org/book/en/quick_start/install.html) for more details.
 
 After that, run `CREATE EXTENSION wasm_executor` in a
 openGauss shell. Two new functions will appear: `wasm_new_instance` and `wasm_new_instance_wat`; They must be

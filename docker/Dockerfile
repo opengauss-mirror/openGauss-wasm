@@ -25,13 +25,11 @@ RUN cp -f /home/opengauss/bashrc /home/opengauss/.bashrc && \
     cd /home/opengauss && \
     if [ "`uname -m`" == "x86_64" ]; then \
         wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_x86_64.tar.gz -O openGauss_third.tar.gz && \
-	wget -q https://github.com/bytecodealliance/wasmtime/releases/download/v1.0.1/wasmtime-v1.0.1-x86_64-linux-c-api.tar.xz -O wasmtime.tar.xz; \
     else \
         wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_arm.tar.gz -O openGauss_third.tar.gz && \
-	wget -q https://github.com/bytecodealliance/wasmtime/releases/download/v1.0.1/wasmtime-v1.0.1-aarch64-linux-c-api.tar.xz -O wasmtime.tar.xz;  \
     fi && \
     tar -xf openGauss_third.tar.gz && mv openGauss-third_party_binarylibs* binarylibs && rm -f openGauss_third.tar.gz && \
-    tar -xf wasmtime.tar.xz && mv wasmtime-v1.0.1* wasmtime && rm -rf wasmtime.tar.xz && rm -rf /home/opengauss/wasmtime/lib/libwasmtime.a && \
+    curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2 && source /home/opengauss/.wasmedge/env \
     source /home/opengauss/.bashrc && git clone https://gitee.com/Nelson-He/openGauss-server.git && cd openGauss-server && \
     ./configure --gcc-version=7.3.0 CC=g++ CFLAGS='-O2' \
         --prefix=$GAUSSHOME --3rd=$BINARYLIBS \
