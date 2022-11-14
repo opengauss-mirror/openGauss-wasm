@@ -28,7 +28,7 @@ You can install the wasmedge as simple as
 Refer to [https://wasmedge.org/book/en/quick_start/install.html](https://wasmedge.org/book/en/quick_start/install.html) for more details.
 
 After that, run `CREATE EXTENSION wasm_executor` in a
-openGauss shell. Two new functions will appear: `wasm_new_instance` and `wasm_new_instance_wat`; They must be
+openGauss shell. One new function will appear: `wasm_new_instance`; It must be
 called with the absolute path to the shared library. It looks like
 this:
 
@@ -36,7 +36,7 @@ this:
 $ # Build the shared library.
 $ make
 
-$ # Install the extension in the Postgres opengauss
+$ # Install the extension in the opengauss
 $ make install
 
 $ # Activate and initialize the extension.
@@ -122,11 +122,11 @@ To get your hands on openGauss with wasm, we recommend using the Docker image.
 Download the docker image firstlly.
 
 ```shell
-docker pull heguofeng/opengauss-wasm:1.0.0
+docker pull opengaussofficial/opengauss-wasmedge:0.1.0
 ```
 Then run it.
 ```shell
-docker run -it heguofeng/opengauss-wasm:1.0.0 bash
+docker run -it opengaussofficial/opengauss-wasmedge:0.1.0 bash
 ```
 And enjoy it.
 
@@ -135,8 +135,7 @@ And enjoy it.
 
 The extension provides two ways to initilize a WebAssembly instance. As you can
 see from the functions name show above, one way is to use `wasm_new_instance` from
-.wasm file compiled from other languages, the other way is to use `wasm_new_instance_wat`
-from .wat file, which is the text format of wasm.
+.wasm file compiled from other languages.
 
 And, the extension provides two tables, gathered together in
 the `wasm` foreign schema:
@@ -147,8 +146,8 @@ the `wasm` foreign schema:
   * `wasm.exported_functions` is a table with the `instanceid`,
     `funcname`, `inputs` and `output` columns, respectively for the
     instance ID of the exported function, its name, its input types
-    (already formatted for Postgres), and its output types (already
-    formatted for Postgres).
+    (already formatted for openGauss), and its output types (already
+    formatted for openGauss).
 
 Let's see:
 
@@ -159,7 +158,6 @@ SELECT * FROM wasm.instances;
 --      id        |          wasm_file
 -- ---------------+-------------------------------
 --  2785875771    | /absolute/path/to/sum.wasm
---  3780612139    | /absolute/path/to/gcd.wat
 -- (1 row)
 
 -- Select all exported functions for a specific instance.

@@ -24,19 +24,19 @@ USER opengauss:opengauss
 RUN cp -f /home/opengauss/bashrc /home/opengauss/.bashrc && \
     cd /home/opengauss && \
     if [ "`uname -m`" == "x86_64" ]; then \
-        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_x86_64.tar.gz -O openGauss_third.tar.gz && \
+        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_x86_64.tar.gz -O openGauss_third.tar.gz; \
     else \
-        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_arm.tar.gz -O openGauss_third.tar.gz && \
+        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_arm.tar.gz -O openGauss_third.tar.gz; \
     fi && \
     tar -xf openGauss_third.tar.gz && mv openGauss-third_party_binarylibs* binarylibs && rm -f openGauss_third.tar.gz && \
-    curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2 && source /home/opengauss/.wasmedge/env \
+    curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2 && source /home/opengauss/.wasmedge/env && \
     source /home/opengauss/.bashrc && git clone https://gitee.com/Nelson-He/openGauss-server.git && cd openGauss-server && \
     ./configure --gcc-version=7.3.0 CC=g++ CFLAGS='-O2' \
         --prefix=$GAUSSHOME --3rd=$BINARYLIBS \
         --enable-cassert --enable-thread-safety \
         --without-readline --without-zlib  && \
     make -sj 8 && make install -sj 8 && \
-    cd /home/opengauss && git clone https://gitee.com/Nelson-He/openGauss-wasm.git && \
+    cd /home/opengauss && git clone https://gitee.com/Nelson-He/openGauss-wasm.git -b wasmedge && \
     cp -rf openGauss-wasm/wasm  openGauss-server/contrib && \
     cd openGauss-server/contrib/wasm && make && make install && \
     cd /home/opengauss && \
