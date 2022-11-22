@@ -34,7 +34,7 @@ this:
 $ # Build the shared library.
 $ make
 
-$ # Install the extension in the Postgres opengauss
+$ # Install the extension in the opengauss
 $ make install
 
 $ # Activate and initialize the extension.
@@ -120,11 +120,11 @@ To get your hands on openGauss with wasm, we recommend using the Docker image.
 Download the docker image firstlly.
 
 ```shell
-docker pull heguofeng/opengauss-wasm:1.0.0
+docker pull opengaussofficial/opengauss-wasmtime:0.1.0
 ```
 Then run it.
 ```shell
-docker run -it heguofeng/opengauss-wasm:1.0.0 bash
+docker run -it opengaussofficial/opengauss-wasmtime:0.1.0 bash
 ```
 And enjoy it.
 
@@ -145,8 +145,8 @@ the `wasm` foreign schema:
   * `wasm.exported_functions` is a table with the `instanceid`,
     `funcname`, `inputs` and `output` columns, respectively for the
     instance ID of the exported function, its name, its input types
-    (already formatted for Postgres), and its output types (already
-    formatted for Postgres).
+    (already formatted for openGauss), and its output types (already
+    formatted for openGauss).
 
 Let's see:
 
