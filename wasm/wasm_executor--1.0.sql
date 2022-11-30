@@ -183,7 +183,7 @@ BEGIN
    
     -- Insert the wasm information to gloable table 
     INSERT INTO wasm.instances SELECT id, wasm_file FROM wasm_get_instances() WHERE id = current_instance_id;
-    INSERT INTO wasm.exported_functions SELECT current_instance_id, funcname, inputs, outputs FROM wasm_get_exported_functions(current_instance_id);
+    INSERT INTO wasm.exported_functions SELECT current_instance_id, namespace, funcname, inputs, outputs FROM wasm_get_exported_functions(current_instance_id);
     
     -- Generate functions for each exported functions from the WebAssembly instance.
     FOR
