@@ -47,6 +47,11 @@ RETURNS int8
 AS 'MODULE_PATHNAME', 'wasm_create_instance_wat'
 LANGUAGE C STRICT;
 
+CREATE FUNCTION wasm_drop_instance(int8)
+RETURNS text
+AS 'MODULE_PATHNAME', 'wasm_drop_instance'
+LANGUAGE C STRICT;
+
 CREATE FUNCTION wasm_invoke_function_0(text, text)
 RETURNS int8
 AS 'MODULE_PATHNAME', 'wasm_invoke_function_0'
@@ -237,5 +242,41 @@ BEGIN
     END LOOP;
 
     RETURN current_instance_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION wasm_delete_instance(delete_instance int8) RETURNS text AS $$
+DECLARE
+    instance_module_path text;
+    exported_function RECORD;
+BEGIN
+    -- Create a new instance, and stores its ID in `current_instance_id`.
+    SELECT wasm_drop_instance(delete_instance) INTO STRICT instance_module_path;
+   
+    -- Generate functions for each exported functions from the WebAssembly instance.
+    FOR
+        exported_function
+    IN
+        SELECT
+            namespace,
+            funcname,
+            inputs
+        FROM
+            wasm.exported_functions WHERE instanceid = delete_instance
+    LOOP
+
+        EXECUTE format(
+            'DROP FUNCTION %I_%I(%3$s)',
+            exported_function.namespace, -- 1
+            exported_function.funcname, -- 2
+            exported_function.inputs
+        );
+    END LOOP;
+
+    DELETE FROM wasm.instances WHERE id = delete_instance;
+    DELETE FROM wasm.exported_functions WHERE instanceid = delete_instance;
+
+    RETURN instance_module_path;
 END;
 $$ LANGUAGE plpgsql;
