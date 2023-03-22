@@ -30,6 +30,9 @@ RUN cp -f /home/opengauss/bashrc /home/opengauss/.bashrc && \
     fi && \
     tar -xf openGauss_third.tar.gz && mv openGauss-third_party_binarylibs* binarylibs && rm -f openGauss_third.tar.gz && \
     curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2 && source /home/opengauss/.wasmedge/env && \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source "$HOME/.cargo/env" && \
+    rustup target add wasm32-unknown-unknown && \
+    cargo install wasm-gc && \
     source /home/opengauss/.bashrc && git clone https://gitee.com/Nelson-He/openGauss-server.git && cd openGauss-server && \
     ./configure --gcc-version=7.3.0 CC=g++ CFLAGS='-O2' \
         --prefix=$GAUSSHOME --3rd=$BINARYLIBS \
