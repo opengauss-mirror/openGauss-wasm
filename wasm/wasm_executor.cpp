@@ -13,6 +13,7 @@
 PG_MODULE_MAGIC;
 
 extern "C" Datum wasm_create_instance(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_drop_instance(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_get_instances(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_get_exported_functions(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_invoke_function_0(PG_FUNCTION_ARGS);
@@ -279,6 +280,34 @@ Datum wasm_create_instance(PG_FUNCTION_ARGS)
     WasmEdge_VMDelete(vm_cxt);
     WasmEdge_ConfigureDelete(config_context);
     return Int64GetDatum(uuid);
+}
+
+PG_FUNCTION_INFO_V1(wasm_drop_instance);
+Datum wasm_drop_instance(PG_FUNCTION_ARGS) 
+{
+    int64 instanceid = PG_GETARG_INT64(0);
+    Datum module_path;
+    
+    if (!superuser())
+        ereport(ERROR,
+            (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), (errmsg("wasm_executor: must be system admin to delete wasm instance"))));
+
+    std::map<int64, std::string>::iterator institor = instances.begin();
+    while (institor != instances.end() && institor->first != instanceid) {
+        institor++;
+    }
+    if (institor == instances.end()) {
+        ereport(ERROR, (errmsg("wasm_executor:instance with id=%ld not exist", instanceid)));
+    }
+    module_path = CStringGetTextDatum((institor->second).c_str());
+    instances.erase(institor);
+
+    std::map<int64, std::vector<WasmFuncInfo*>*>::iterator funcitor = exported_functions.begin();
+    while (funcitor != exported_functions.end() && funcitor->first == instanceid) {
+        exported_functions.erase(funcitor++);
+    }
+    
+    return module_path;
 }
 
 PG_FUNCTION_INFO_V1(wasm_get_instances);
