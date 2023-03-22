@@ -71,6 +71,20 @@ Then create a project using cargo
 ```
 cargo new hello --lib
 ```
+The file Cargo.toml (aka "manifest") contains the project's configuration. Leave everything, but append a new block called [lib]. The result should look something this
+```
+[package]
+name = "hello"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[lib]
+crate-type = ["cdylib"]
+```
 Rust code lives in the src directory. Your new project contains the default file src/lib.rs. Replace its contents with the sum.rs.
 And then compile the project to Wasm and shrink the wasm output.
 
@@ -150,7 +164,8 @@ Then run it.
 ```shell
 docker run -it opengauss/wasmedge:0.2.0 bash
 ```
-And enjoy it.
+The rust and wasm toolchain have already installed in the docker image for quick use.
+So just go ahead and enjoy it.
 
 
 ## Inspect a WebAssembly instance
