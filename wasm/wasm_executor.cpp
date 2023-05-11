@@ -16,17 +16,14 @@ extern "C" Datum wasm_create_instance(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_drop_instance(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_get_instances(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_get_exported_functions(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_0(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_1(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_2(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_3(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_4(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_5(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_6(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_7(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_8(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_9(PG_FUNCTION_ARGS);
-extern "C" Datum wasm_invoke_function_10(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_int8_0(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_int8_1(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_int8_2(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_int8_3(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_int8_4(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_int8_5(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_text_1(PG_FUNCTION_ARGS);
+extern "C" Datum wasm_invoke_function_text_2(PG_FUNCTION_ARGS);
 
 typedef struct TupleInstanceState {
     TupleDesc tupd;
@@ -105,6 +102,51 @@ static int64 generate_uuid(Datum input)
 }
 
 static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vector<int64> &args)
+{
+    int64 instanceid = atol(instanceid_str);
+    std::string wasm_file = find_wasm_file(instanceid);
+    if (wasm_file == "") {
+        ereport(ERROR, (errmsg("wasm_executor: instance with id %ld is not find", instanceid)));
+    }
+    WasmFuncInfo *funcinfo = find_exported_func(instanceid, funcname);
+
+    WasmEdge_ConfigureContext *config_context = WasmEdge_ConfigureCreate();
+    WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_Wasi);
+    WasmEdge_VMContext *vm_conext = WasmEdge_VMCreate(config_context, NULL);
+
+    WasmEdge_Value params[args.size()];
+    for (unsigned int i = 0; i < args.size(); ++i) {
+        if (funcinfo->inputs[i] == "integer") {
+            params[i] = WasmEdge_ValueGenI32(args[i]);
+        } else {
+            params[i] = WasmEdge_ValueGenI64(args[i]);
+        }
+    }
+
+    WasmEdge_Value result[1];
+    WasmEdge_String wasm_func = WasmEdge_StringCreateByCString(funcname);
+    WasmEdge_Result ret = WasmEdge_VMRunWasmFromFile(vm_conext, wasm_file.c_str(), wasm_func, params, args.size(), result, 1);
+    if (!WasmEdge_ResultOK(ret)) {
+        WasmEdge_VMDelete(vm_conext);
+        WasmEdge_ConfigureDelete(config_context);
+        WasmEdge_StringDelete(wasm_func);
+        ereport(ERROR, (errmsg("wasm_executor: call func %s failed", funcname)));
+    } 
+    int64 ret_val = 0;
+    if (funcinfo->outputs == "integer") {
+        ret_val = WasmEdge_ValueGetI32(result[0]);
+    } else {
+        ret_val = WasmEdge_ValueGetI64(result[0]);
+    }
+    /* Resources deallocations. */
+    WasmEdge_VMDelete(vm_conext);
+    WasmEdge_ConfigureDelete(config_context);
+    WasmEdge_StringDelete(wasm_func);
+
+    return ret_val;
+}
+
+static char* wasm_invoke_function2(char *instanceid_str, char* funcname, vector<char*> params)
 {
     int64 instanceid = atol(instanceid_str);
     std::string wasm_file = find_wasm_file(instanceid);
@@ -422,8 +464,8 @@ Datum wasm_get_exported_functions(PG_FUNCTION_ARGS)
     }
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_0);
-Datum wasm_invoke_function_0(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_int8_0);
+Datum wasm_invoke_function_int8_0(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
@@ -433,33 +475,20 @@ Datum wasm_invoke_function_0(PG_FUNCTION_ARGS)
     return Int64GetDatum(result);
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_1);
-Datum wasm_invoke_function_1(PG_FUNCTION_ARGS)
-{
-    char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
-    char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
-    std::vector<int64> params;
-
-    params.push_back(PG_GETARG_INT64(2));
-    int64 result = wasm_invoke_function(instanceid, funcname, params);
-    return Int64GetDatum(result);
-}
-
-PG_FUNCTION_INFO_V1(wasm_invoke_function_2);
-Datum wasm_invoke_function_2(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_int8_1);
+Datum wasm_invoke_function_int8_1(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
     std::vector<int64> params;
 
     params.push_back(PG_GETARG_INT64(2));
-    params.push_back(PG_GETARG_INT64(3));
     int64 result = wasm_invoke_function(instanceid, funcname, params);
     return Int64GetDatum(result);
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_3);
-Datum wasm_invoke_function_3(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_int8_2);
+Datum wasm_invoke_function_int8_2(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
@@ -467,13 +496,12 @@ Datum wasm_invoke_function_3(PG_FUNCTION_ARGS)
 
     params.push_back(PG_GETARG_INT64(2));
     params.push_back(PG_GETARG_INT64(3));
-    params.push_back(PG_GETARG_INT64(4));
     int64 result = wasm_invoke_function(instanceid, funcname, params);
     return Int64GetDatum(result);
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_4);
-Datum wasm_invoke_function_4(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_int8_3);
+Datum wasm_invoke_function_int8_3(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
@@ -482,13 +510,12 @@ Datum wasm_invoke_function_4(PG_FUNCTION_ARGS)
     params.push_back(PG_GETARG_INT64(2));
     params.push_back(PG_GETARG_INT64(3));
     params.push_back(PG_GETARG_INT64(4));
-    params.push_back(PG_GETARG_INT64(5));
     int64 result = wasm_invoke_function(instanceid, funcname, params);
     return Int64GetDatum(result);
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_5);
-Datum wasm_invoke_function_5(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_int8_4);
+Datum wasm_invoke_function_int8_4(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
@@ -498,13 +525,12 @@ Datum wasm_invoke_function_5(PG_FUNCTION_ARGS)
     params.push_back(PG_GETARG_INT64(3));
     params.push_back(PG_GETARG_INT64(4));
     params.push_back(PG_GETARG_INT64(5));
-    params.push_back(PG_GETARG_INT64(6));
     int64 result = wasm_invoke_function(instanceid, funcname, params);
     return Int64GetDatum(result);
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_6);
-Datum wasm_invoke_function_6(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_int8_5);
+Datum wasm_invoke_function_int8_5(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
@@ -515,85 +541,33 @@ Datum wasm_invoke_function_6(PG_FUNCTION_ARGS)
     params.push_back(PG_GETARG_INT64(4));
     params.push_back(PG_GETARG_INT64(5));
     params.push_back(PG_GETARG_INT64(6));
-    params.push_back(PG_GETARG_INT64(7));
     int64 result = wasm_invoke_function(instanceid, funcname, params);
     return Int64GetDatum(result);
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_7);
-Datum wasm_invoke_function_7(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_text_1);
+Datum wasm_invoke_function_text_1(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
-    std::vector<int64> params;
 
-    params.push_back(PG_GETARG_INT64(2));
-    params.push_back(PG_GETARG_INT64(3));
-    params.push_back(PG_GETARG_INT64(4));
-    params.push_back(PG_GETARG_INT64(5));
-    params.push_back(PG_GETARG_INT64(6));
-    params.push_back(PG_GETARG_INT64(7));
-    params.push_back(PG_GETARG_INT64(8));
-    int64 result = wasm_invoke_function(instanceid, funcname, params);
-    return Int64GetDatum(result);
+    std::vector<char*> params;
+    params.push_back(TextDatumGetCString(PG_GETARG_DATUM(2)));
+
+    char* result = wasm_invoke_function2(instanceid, funcname, params);
+    return CStringGetTextDatum(result);
 }
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_8);
-Datum wasm_invoke_function_8(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(wasm_invoke_function_text_2);
+Datum wasm_invoke_function_text_2(PG_FUNCTION_ARGS)
 {
     char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
     char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
-    std::vector<int64> params;
 
-    params.push_back(PG_GETARG_INT64(2));
-    params.push_back(PG_GETARG_INT64(3));
-    params.push_back(PG_GETARG_INT64(4));
-    params.push_back(PG_GETARG_INT64(5));
-    params.push_back(PG_GETARG_INT64(6));
-    params.push_back(PG_GETARG_INT64(7));
-    params.push_back(PG_GETARG_INT64(8));
-    params.push_back(PG_GETARG_INT64(9));
-    int64 result = wasm_invoke_function(instanceid, funcname, params);
-    return Int64GetDatum(result);
-}
+    std::vector<char*> params;
+    params.push_back(TextDatumGetCString(PG_GETARG_DATUM(2)));
+    params.push_back(TextDatumGetCString(PG_GETARG_DATUM(3)));
 
-PG_FUNCTION_INFO_V1(wasm_invoke_function_9);
-Datum wasm_invoke_function_9(PG_FUNCTION_ARGS)
-{
-    char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
-    char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
-    std::vector<int64> params;
-    
-    params.push_back(PG_GETARG_INT64(2));
-    params.push_back(PG_GETARG_INT64(3));
-    params.push_back(PG_GETARG_INT64(4));
-    params.push_back(PG_GETARG_INT64(5));
-    params.push_back(PG_GETARG_INT64(6));
-    params.push_back(PG_GETARG_INT64(7));
-    params.push_back(PG_GETARG_INT64(8));
-    params.push_back(PG_GETARG_INT64(9));
-    params.push_back(PG_GETARG_INT64(10));
-    int64 result = wasm_invoke_function(instanceid, funcname, params);
-    return Int64GetDatum(result);
-}
-
-PG_FUNCTION_INFO_V1(wasm_invoke_function_10);
-Datum wasm_invoke_function_10(PG_FUNCTION_ARGS)
-{
-    char* instanceid = TextDatumGetCString(PG_GETARG_DATUM(0));
-    char* funcname = TextDatumGetCString(PG_GETARG_DATUM(1));
-    std::vector<int64> params;
-
-    params.push_back(PG_GETARG_INT64(2));
-    params.push_back(PG_GETARG_INT64(3));
-    params.push_back(PG_GETARG_INT64(4));
-    params.push_back(PG_GETARG_INT64(5));
-    params.push_back(PG_GETARG_INT64(6));
-    params.push_back(PG_GETARG_INT64(7));
-    params.push_back(PG_GETARG_INT64(8));
-    params.push_back(PG_GETARG_INT64(9));
-    params.push_back(PG_GETARG_INT64(10));
-    params.push_back(PG_GETARG_INT64(11));
-    int64 result = wasm_invoke_function(instanceid, funcname, params);
-    return Int64GetDatum(result);
+    char* result = wasm_invoke_function2(instanceid, funcname, params);
+    return CStringGetTextDatum(result);
 }

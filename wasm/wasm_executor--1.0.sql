@@ -47,59 +47,44 @@ RETURNS text
 AS 'MODULE_PATHNAME', 'wasm_drop_instance'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_0(text, text)
+CREATE FUNCTION wasm_invoke_function_int8_0(text, text)
 RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_0'
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_int8_0'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_1(text, text, int8)
+CREATE FUNCTION wasm_invoke_function_int8_1(text, text, int8)
 RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_1'
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_int8_1'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_2(text, text, int8, int8)
+CREATE FUNCTION wasm_invoke_function_int8_2(text, text, int8, int8)
 RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_2'
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_int8_2'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_3(text, text, int8, int8, int8)
+CREATE FUNCTION wasm_invoke_function_int8_3(text, text, int8, int8, int8)
 RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_3'
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_int8_3'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_4(text, text, int8, int8, int8, int8)
+CREATE FUNCTION wasm_invoke_function_int8_4(text, text, int8, int8, int8, int8)
 RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_4'
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_int8_4'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_5(text, text, int8, int8, int8, int8, int8)
+CREATE FUNCTION wasm_invoke_function_int8_5(text, text, int8, int8, int8, int8, int8)
 RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_5'
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_int8_5'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_6(text, text, int8, int8, int8, int8, int8, int8)
-RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_6'
+CREATE FUNCTION wasm_invoke_function_text_1(text, text, text)
+RETURNS text
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_text_1'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION wasm_invoke_function_7(text, text, int8, int8, int8, int8, int8, int8, int8)
-RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_7'
-LANGUAGE C STRICT;
-
-CREATE FUNCTION wasm_invoke_function_8(text, text, int8, int8, int8, int8, int8, int8, int8, int8)
-RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_8'
-LANGUAGE C STRICT;
-
-CREATE FUNCTION wasm_invoke_function_9(text, text, int8, int8, int8, int8, int8, int8, int8, int8, int8)
-RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_9'
-LANGUAGE C STRICT;
-
-CREATE FUNCTION wasm_invoke_function_10(text, text, int8, int8, int8, int8, int8, int8, int8, int8, int8, int8)
-RETURNS int8
-AS 'MODULE_PATHNAME', 'wasm_invoke_function_10'
+CREATE FUNCTION wasm_invoke_function_text_2(text, text, text, text)
+RETURNS text
+AS 'MODULE_PATHNAME', 'wasm_invoke_function_text_2'
 LANGUAGE C STRICT;
 
 CREATE OR REPLACE FUNCTION wasm_new_instance(module_pathname text, namespace text) RETURNS text AS $$
@@ -108,6 +93,7 @@ DECLARE
     exported_function RECORD;
     exported_function_generated_inputs text;
     exported_function_generated_outputs text;
+    exported_function_bind_outputs text;
 BEGIN
     -- Create a new instance, and stores its ID in `current_instance_id`.
     SELECT wasm_create_new_instance(module_pathname) INTO STRICT current_instance_id;
@@ -137,9 +123,10 @@ BEGIN
 
         exported_function_generated_inputs := '';
         exported_function_generated_outputs := '';
+        exported_function_bind_outputs :='';
 
         FOR nth IN 1..exported_function.input_arity LOOP
-            exported_function_generated_inputs := exported_function_generated_inputs || format(', CAST($%s AS int8)', nth);
+            exported_function_generated_inputs := exported_function_generated_inputs || format(', $%s', nth);
         END LOOP;
 
         IF length(exported_function.outputs) > 0 THEN
@@ -148,12 +135,18 @@ BEGIN
             exported_function_generated_outputs := 'integer';
         END IF;
 
+        IF exported_function_generated_outputs == 'text' THEN
+            exported_function_bind_outputs := 'text';
+        ELSE
+            exported_function_bind_outputs := 'int8';
+        END IF;
+
         EXECUTE format(
             'CREATE OR REPLACE FUNCTION %I_%I(%3$s) RETURNS %5$s AS $F$' ||
             'DECLARE' ||
             '    output %5$s;' ||
             'BEGIN' ||
-            '    SELECT wasm_invoke_function_%4$s(%6$L, %2$L%7$s) INTO STRICT output;' ||
+            '    SELECT wasm_invoke_function_%8$s_%4$s(%6$L, %2$L%7$s) INTO STRICT output;' ||
             '    RETURN output;' ||
             'END;' ||
             '$F$ LANGUAGE plpgsql;',
@@ -163,7 +156,8 @@ BEGIN
             exported_function.input_arity, -- 4
             exported_function_generated_outputs, -- 5
             current_instance_id, -- 6
-            exported_function_generated_inputs -- 7
+            exported_function_generated_inputs, -- 7
+            exported_function_bind_outputs --8
         );
     END LOOP;
 
