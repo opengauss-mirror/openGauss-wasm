@@ -63,9 +63,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup target add wasm32-unknown-unknown
 
 ```
-And also install wasm-gc, which will be used to compress the .wasm file output
+And also install wasm-opt, which will be used to optimize and compress the .wasm file output
 ```
-cargo install wasm-gc
+cargo install wasm-opt
 ```
 Then create a project using cargo
 ```
@@ -90,7 +90,7 @@ And then compile the project to Wasm and shrink the wasm output.
 
 ```
 cargo build --target wasm32-unknown-unknown --release
-wasm-gc target/wasm32-unknown-unknown/release/hello.wasm
+wasm-opt -Os target/wasm32-unknown-unknown/release/hello.wasm -o hello.wasm
 ```
 
 Once compiled to WebAssembly, one obtains a similar WebAssembly binary
