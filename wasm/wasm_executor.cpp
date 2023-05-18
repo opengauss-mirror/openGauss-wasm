@@ -26,6 +26,7 @@ extern "C" Datum wasm_invoke_function_text_1(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_invoke_function_text_2(PG_FUNCTION_ARGS);
 
 static const char * const malloc_func = "opengauss_malloc";
+static const char OPENGAUSS_TEXT = 3;
 
 typedef struct TupleInstanceState {
     TupleDesc tupd;
@@ -81,22 +82,6 @@ static std::vector<WasmFuncInfo*>* find_exported_func_list(int64 instanceid)
     return NULL;
 }
 
-static WasmFuncInfo* find_exported_func(int64 instanceid, std::string funcname)
-{
-    std::vector<WasmFuncInfo *>* functions = find_exported_func_list(instanceid);
-    if (functions == NULL) {
-        ereport(ERROR, (errmsg("wasm_executor: function infos of instance %ld is not find", instanceid)));
-    }
-    for (std::vector<WasmFuncInfo*>::iterator curr = functions->begin(); curr != functions->end(); curr++) {
-        if ((*curr)->funcname == funcname) {
-            return *curr;
-        }
-    }
-
-    ereport(ERROR, (errmsg("wasm_executor: function %s not exist in instance %ld ", funcname.c_str(), instanceid)));
-    return NULL;
-}
-
 static int64 generate_uuid(Datum input) 
 {
     Datum uuid = DirectFunctionCall1(hashtext, input);
@@ -110,7 +95,6 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
     if (wasm_file == "") {
         ereport(ERROR, (errmsg("wasm_executor: instance with id %ld is not find", instanceid)));
     }
-    WasmFuncInfo *funcinfo = find_exported_func(instanceid, funcname);
 
     WasmEdge_ConfigureContext *config_context = WasmEdge_ConfigureCreate();
     WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_Wasi);
@@ -140,49 +124,84 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
     return ret_val;
 }
 
-static char* wasm_invoke_function2(char *instanceid_str, char* funcname, vector<char*> params)
+static char* wasm_invoke_function2(char *instanceid_str, char* funcname, std::vector<char*> args)
 {
     int64 instanceid = atol(instanceid_str);
     std::string wasm_file = find_wasm_file(instanceid);
     if (wasm_file == "") {
         ereport(ERROR, (errmsg("wasm_executor: instance with id %ld is not find", instanceid)));
     }
-    WasmFuncInfo *funcinfo = find_exported_func(instanceid, funcname);
 
     WasmEdge_ConfigureContext *config_context = WasmEdge_ConfigureCreate();
     WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_Wasi);
     WasmEdge_VMContext *vm_conext = WasmEdge_VMCreate(config_context, NULL);
 
-    WasmEdge_Value params[args.size()];
-    for (unsigned int i = 0; i < args.size(); ++i) {
-        if (funcinfo->inputs[i] == "integer") {
-            params[i] = WasmEdge_ValueGenI32(args[i]);
-        } else {
-            params[i] = WasmEdge_ValueGenI64(args[i]);
-        }
+    WasmEdge_Result res = WasmEdge_VMLoadWasmFromFile(vm_conext, wasm_file.c_str());
+    if (!WasmEdge_ResultOK(res)) {
+        ereport(ERROR, (errmsg("wasm_executor: wasm vm load failed")));
     }
 
-    WasmEdge_Value result[1];
-    WasmEdge_String wasm_func = WasmEdge_StringCreateByCString(funcname);
-    WasmEdge_Result ret = WasmEdge_VMRunWasmFromFile(vm_conext, wasm_file.c_str(), wasm_func, params, args.size(), result, 1);
-    if (!WasmEdge_ResultOK(ret)) {
-        WasmEdge_VMDelete(vm_conext);
-        WasmEdge_ConfigureDelete(config_context);
-        WasmEdge_StringDelete(wasm_func);
-        ereport(ERROR, (errmsg("wasm_executor: call func %s failed", funcname)));
-    } 
-    int64 ret_val = 0;
-    if (funcinfo->outputs == "integer") {
-        ret_val = WasmEdge_ValueGetI32(result[0]);
-    } else {
-        ret_val = WasmEdge_ValueGetI64(result[0]);
+    const WasmEdge_ModuleInstanceContext* instance_ctx = WasmEdge_VMGetActiveModule(vm_conext);
+    WasmEdge_String mem_name = WasmEdge_StringCreateByCString("memory");
+    WasmEdge_MemoryInstanceContext* mem_ctx = WasmEdge_ModuleInstanceFindMemory(instance_ctx, mem_name);
+    WasmEdge_StringDelete(mem_name);
+
+    WasmEdge_Value results[1];
+    WasmEdge_Value malloc_param[1];
+    WasmEdge_Value params[args.size()];
+
+    int mem_size = WasmEdge_MemoryInstanceGetPageSize(mem_ctx) * 65536;
+    int mem_offset = mem_size;
+
+    for (unsigned int i = 0; i < args.size(); ++i) {
+        int text_len = strlen(args[i]);
+        const char *text = args[i];
+        malloc_param[0] = WasmEdge_ValueGenI32(text_len + 2);
+        WasmEdge_String wasmedge_func_name = WasmEdge_StringCreateByCString("opengauss_malloc");
+        res = WasmEdge_VMExecute(vm_conext, wasmedge_func_name, malloc_param, 1, results, 1);
+        WasmEdge_StringDelete(wasmedge_func_name);
+        if (!WasmEdge_ResultOK(res)) {
+            ereport(ERROR, (errmsg("wasm_executor: call opengauss malloc failed")));
+        }
+        mem_offset = WasmEdge_ValueGetI32(results[0]);
+
+        uint8_t *data = WasmEdge_MemoryInstanceGetPointer(mem_ctx, mem_offset, text_len + 2);
+        data[0] = OPENGAUSS_TEXT;
+        memcpy(data + 1, text, text_len);
+        data[1 + text_len] = '\0';
+        params[i] = WasmEdge_ValueGenI32(mem_offset);
     }
+
+    WasmEdge_String wasmedge_func_name = WasmEdge_StringCreateByCString(funcname);
+    res = WasmEdge_VMExecute(vm_conext, wasmedge_func_name, params, args.size(), results, 1);
+    WasmEdge_StringDelete(wasmedge_func_name);
+    if (!WasmEdge_ResultOK(res)) {
+        ereport(ERROR, (errmsg("wasm_executor: call func %s failed", funcname)));
+    }
+
+    int type_offset = WasmEdge_ValueGetI32(results[0]);
+    char *type_ptr = (char *)WasmEdge_MemoryInstanceGetPointer(mem_ctx, type_offset, 1);
+    if (!type_ptr) {
+        ereport(ERROR, (errmsg("Unexpected end of Wasm memory when trying to fetch results")));
+    }
+    char type = *type_ptr;
+    if (type != OPENGAUSS_TEXT) {
+        ereport(ERROR, (errmsg("Unsupported type of wasm: %d", type)));
+    }
+
+    const char *wasm_result = type_ptr + 1;
+    size_t wasm_result_len = strlen(wasm_result);
+    char *result = (char *)pg_malloc(wasm_result_len + 1);
+    if (!result) {
+        ereport(ERROR, (errmsg("malloc memory for result failed, size: %ld", wasm_result_len)));
+    }
+    memcpy(result, wasm_result, wasm_result_len);
+
     /* Resources deallocations. */
     WasmEdge_VMDelete(vm_conext);
     WasmEdge_ConfigureDelete(config_context);
-    WasmEdge_StringDelete(wasm_func);
 
-    return ret_val;
+    return result;
 }
 
 static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call_data)
@@ -221,8 +240,8 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
         char tmp_buffer[BUF_LEN] = {0};
         uint32_t func_name_len = WasmEdge_StringCopy(func_name_list[i], tmp_buffer, sizeof(tmp_buffer));
         elog(DEBUG1, "wasm_executor: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
-        if (strcmp(temp_buffer, malloc_func) == 0) {
-            elog((DEBUG1, "wasm_executor: opengauss_malloc is not need to export to user\n");)
+        if (strcmp(tmp_buffer, malloc_func) == 0) {
+            elog(DEBUG1, "wasm_executor: opengauss_malloc is not need to export to user\n");
             continue;
         }
 
@@ -246,7 +265,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
         param_nums = WasmEdge_FunctionTypeGetParameters(func_type_list[i], param_buffer, MAX_PARAMS);
         for (unsigned int j = 0; j < param_nums; ++j) {
             if (param_buffer[j] == WasmEdge_ValType_I32) {
-                funcinfo->inputs.push_back("varchar");
+                funcinfo->inputs.push_back("text");
             } else if (param_buffer[j] == WasmEdge_ValType_I64) {
                 funcinfo->inputs.push_back("bigint");
             } else {
@@ -258,7 +277,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
         
         return_num = WasmEdge_FunctionTypeGetReturns(func_type_list[i], param_buffer, 10);
         if (param_buffer[0] == WasmEdge_ValType_I32) {
-            funcinfo->outputs = "varchar";
+            funcinfo->outputs = "text";
         } else if (param_buffer[0] == WasmEdge_ValType_I64) {
             funcinfo->outputs = "bigint";
         } else {

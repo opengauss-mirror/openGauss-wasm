@@ -135,7 +135,7 @@ BEGIN
             exported_function_generated_outputs := 'integer';
         END IF;
 
-        IF exported_function_generated_outputs == 'text' THEN
+        IF exported_function_generated_outputs = 'text' THEN
             exported_function_bind_outputs := 'text';
         ELSE
             exported_function_bind_outputs := 'int8';
