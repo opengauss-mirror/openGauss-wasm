@@ -118,7 +118,7 @@ BEGIN
             (SELECT * FROM wasm_get_exported_functions(current_instance_id))
     LOOP
         IF exported_function.input_arity > 10 THEN
-           RAISE EXCEPTION 'WebAssembly exported function `%` has an arity greater than 10, which is not supported yet.', exported_function.funcname;
+           RAISE EXCEPTION 'WebAssembly exported function `%` has an arity greater than 5, which is not supported yet.', exported_function.funcname;
         END IF;
 
         exported_function_generated_inputs := '';

@@ -25,6 +25,8 @@ extern "C" Datum wasm_invoke_function_int8_5(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_invoke_function_text_1(PG_FUNCTION_ARGS);
 extern "C" Datum wasm_invoke_function_text_2(PG_FUNCTION_ARGS);
 
+static const char * const malloc_func = "opengauss_malloc";
+
 typedef struct TupleInstanceState {
     TupleDesc tupd;
     std::map<int64, std::string>::iterator currindex;
@@ -44,7 +46,7 @@ typedef struct TupleFuncState {
 } TupleFuncState;
 
 #define BUF_LEN 256
-#define MAX_PARAMS 10
+#define MAX_PARAMS 5
 #define MAX_RETURNS 1
 
 // Store the wasm file info globally 
@@ -116,11 +118,7 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
 
     WasmEdge_Value params[args.size()];
     for (unsigned int i = 0; i < args.size(); ++i) {
-        if (funcinfo->inputs[i] == "integer") {
-            params[i] = WasmEdge_ValueGenI32(args[i]);
-        } else {
-            params[i] = WasmEdge_ValueGenI64(args[i]);
-        }
+        params[i] = WasmEdge_ValueGenI64(args[i]);
     }
 
     WasmEdge_Value result[1];
@@ -133,11 +131,7 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
         ereport(ERROR, (errmsg("wasm_executor: call func %s failed", funcname)));
     } 
     int64 ret_val = 0;
-    if (funcinfo->outputs == "integer") {
-        ret_val = WasmEdge_ValueGetI32(result[0]);
-    } else {
-        ret_val = WasmEdge_ValueGetI64(result[0]);
-    }
+    ret_val = WasmEdge_ValueGetI64(result[0]);
     /* Resources deallocations. */
     WasmEdge_VMDelete(vm_conext);
     WasmEdge_ConfigureDelete(config_context);
@@ -224,9 +218,13 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
      */
     uint32_t rel_func_num = WasmEdge_VMGetFunctionList(vm_cxt, func_name_list, func_type_list, BUF_LEN);
     for (unsigned int i = 0; i < rel_func_num && i < BUF_LEN; ++i) {
-        char tmp_buffer[BUF_LEN];
+        char tmp_buffer[BUF_LEN] = {0};
         uint32_t func_name_len = WasmEdge_StringCopy(func_name_list[i], tmp_buffer, sizeof(tmp_buffer));
         elog(DEBUG1, "wasm_executor: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
+        if (strcmp(temp_buffer, malloc_func) == 0) {
+            elog((DEBUG1, "wasm_executor: opengauss_malloc is not need to export to user\n");)
+            continue;
+        }
 
         uint32_t param_nums = WasmEdge_FunctionTypeGetParametersLength(func_type_list[i]);
         if (param_nums > MAX_PARAMS) {
@@ -244,11 +242,11 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
 
         WasmFuncInfo *funcinfo = new(std::nothrow)WasmFuncInfo();
 
-        enum WasmEdge_ValType param_buffer[10]; // we allow max 10 parameters
-        param_nums = WasmEdge_FunctionTypeGetParameters(func_type_list[i], param_buffer, 10);
+        enum WasmEdge_ValType param_buffer[MAX_PARAMS]; // we allow max 10 parameters
+        param_nums = WasmEdge_FunctionTypeGetParameters(func_type_list[i], param_buffer, MAX_PARAMS);
         for (unsigned int j = 0; j < param_nums; ++j) {
             if (param_buffer[j] == WasmEdge_ValType_I32) {
-                funcinfo->inputs.push_back("integer");
+                funcinfo->inputs.push_back("varchar");
             } else if (param_buffer[j] == WasmEdge_ValType_I64) {
                 funcinfo->inputs.push_back("bigint");
             } else {
@@ -260,7 +258,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
         
         return_num = WasmEdge_FunctionTypeGetReturns(func_type_list[i], param_buffer, 10);
         if (param_buffer[0] == WasmEdge_ValType_I32) {
-            funcinfo->outputs = "integer";
+            funcinfo->outputs = "varchar";
         } else if (param_buffer[0] == WasmEdge_ValType_I64) {
             funcinfo->outputs = "bigint";
         } else {
