@@ -2,7 +2,7 @@ FROM openeuler/openeuler:22.03-lts
 MAINTAINER openGauss-ml@openguass.org
 LABEL MAIL="heguofeng@huawei.com" \
       CREATE_DATE="2022-10" \
-      GAUSS_SERVER="openGauss-3.1.0"
+      GAUSS_SERVER="openGauss-5.0.0"
 
 RUN \
     sed -i "s/gpgcheck=1/gpgcheck=0/g" /etc/yum.repos.d/openEuler.repo && \
@@ -24,26 +24,30 @@ USER opengauss:opengauss
 RUN cp -f /home/opengauss/bashrc /home/opengauss/.bashrc && \
     cd /home/opengauss && \
     if [ "`uname -m`" == "x86_64" ]; then \
-        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_x86_64.tar.gz -O openGauss_third.tar.gz; \
+        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/5.0.0/binarylibs/openGauss-third_party_binarylibs_openEuler_x86_64.tar.gz -O openGauss_third.tar.gz; \
     else \
-        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/3.1.0/binarylibs/openGauss-third_party_binarylibs_openEuler_arm.tar.gz -O openGauss_third.tar.gz; \
+        wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/5.0.0/binarylibs/openGauss-third_party_binarylibs_openEuler_arm.tar.gz -O openGauss_third.tar.gz; \
     fi && \
     tar -xf openGauss_third.tar.gz && mv openGauss-third_party_binarylibs* binarylibs && rm -f openGauss_third.tar.gz && \
     curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2 && source /home/opengauss/.wasmedge/env && \
-    source /home/opengauss/.bashrc && git clone https://gitee.com/Nelson-He/openGauss-server.git && cd openGauss-server && \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source "$HOME/.cargo/env" && \
+    rustup target add wasm32-unknown-unknown && \
+    cargo install wasm-gc && source /home/opengauss/.bashrc && \
+    wget -q https://gitee.com/opengauss/openGauss-server/repository/archive/v5.0.0.zip && unzip -q v5.0.0.zip && rm -rf v5.0.0.zip && \
+    cd openGauss-server-v5.0.0 && \
     ./configure --gcc-version=7.3.0 CC=g++ CFLAGS='-O2' \
         --prefix=$GAUSSHOME --3rd=$BINARYLIBS \
         --enable-cassert --enable-thread-safety \
         --without-readline --without-zlib  && \
     make -sj 8 && make install -sj 8 && \
     cd /home/opengauss && git clone https://gitee.com/Nelson-He/openGauss-wasm.git -b wasmedge && \
-    cp -rf openGauss-wasm/wasm  openGauss-server/contrib && \
-    cd openGauss-server/contrib/wasm && make && make install && \
+    cp -rf openGauss-wasm/wasm  openGauss-server-v5.0.0/contrib && \
+    cd openGauss-server-v5.0.0/contrib/wasm && make && make install && \
     cd /home/opengauss && \
     chmod +x /home/opengauss/entrypoint.sh && \
-    cp /home/opengauss/openGauss-server/contrib/wasm/examples/*  /home/opengauss && \
+    cp /home/opengauss/openGauss-server-v5.0.0/contrib/wasm/examples/*  /home/opengauss && \
     sudo rm -rf /home/opengauss/binarylibs && \
-    sudo rm -rf /home/opengauss/openGauss-server && \ 
+    sudo rm -rf /home/opengauss/openGauss-server-v5.0.0 && \ 
     sudo rm -rf /home/opengauss/openGauss-wasm && \
     sudo yum remove -y make cmake git && \
     sudo yum clean all

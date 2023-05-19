@@ -1,0 +1,28 @@
+CREATE EXTENSION wasm_executor;
+
+SELECT wasm_new_instance('/home/opengauss/encrypt_decrypt.wasm', 'gs');
+
+CREATE TABLE users (
+username TEXT PRIMARY KEY,
+email TEXT,
+passwd TEXT
+);
+
+CREATE TABLE secrets(secret text);
+INSERT INTO secrets VALUES ('s3cretk3y');
+
+CREATE OR REPLACE FUNCTION encrypt_password() RETURNS TRIGGER AS
+$$
+    DECLARE
+    BEGIN
+        UPDATE users SET passwd = gs_encrypt(NEW.passwd, (SELECT secret FROM secrets LIMIT 1)) WHERE username = NEW.username;
+        RETURN NEW;
+    END
+$$LANGUAGE PLPGSQL;
+
+CREATE TRIGGER encrypt_passwd_trigger AFTER INSERT ON users FOR EACH ROW EXECUTE PROCEDURE encrypt_password();
+
+INSERT INTO users VALUES ('peter', 'peter@huawei.com', 'roe-deer');
+INSERT INTO users VALUES ('josh', 'josh@huawei.com', 'turso');
+
+SELECT username, passwd, gs_decrypt(passwd, (SELECT secret FROM secrets LIMIT 1)) AS decrypted FROM users;

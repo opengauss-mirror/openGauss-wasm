@@ -57,6 +57,42 @@ pub extern fn sum(x: i32, y: i32) -> i32 {
 }
 ```
 
+For able to compile the rust code to wasm, the rust and wasm toolchain should be installed.
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup target add wasm32-unknown-unknown
+
+```
+And also install wasm-opt, which will be used to optimize and compress the .wasm file output
+```
+cargo install wasm-opt
+```
+Then create a project using cargo
+```
+cargo new hello --lib
+```
+The file Cargo.toml (aka "manifest") contains the project's configuration. Leave everything, but append a new block called [lib]. The result should look something this
+```
+[package]
+name = "hello"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[lib]
+crate-type = ["cdylib"]
+```
+Rust code lives in the src directory. Your new project contains the default file src/lib.rs. Replace its contents with the sum.rs.
+And then compile the project to Wasm and shrink the wasm output.
+
+```
+cargo build --target wasm32-unknown-unknown --release
+wasm-opt -Os target/wasm32-unknown-unknown/release/hello.wasm -o hello.wasm
+```
+
 Once compiled to WebAssembly, one obtains a similar WebAssembly binary
 to `examples/sum.wasm`. To use the `sum` exported function, first, 
 create a new instance of the WebAssembly module, and second, 
@@ -122,13 +158,14 @@ To get your hands on openGauss with wasm, we recommend using the Docker image.
 Download the docker image firstlly.
 
 ```shell
-docker pull opengaussofficial/opengauss-wasmedge:0.1.0
+docker pull opengauss/wasmedge:0.2.0
 ```
 Then run it.
 ```shell
-docker run -it opengaussofficial/opengauss-wasmedge:0.1.0 bash
+docker run -it opengauss/wasmedge:0.2.0 bash
 ```
-And enjoy it.
+The rust and wasm toolchain have already installed in the docker image for quick use.
+So just go ahead and enjoy it.
 
 
 ## Inspect a WebAssembly instance
