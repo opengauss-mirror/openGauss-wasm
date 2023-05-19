@@ -1,6 +1,6 @@
 CREATE EXTENSION wasm_executor;
 
-SELECT wasm_new_instance('/home/opengauss/encypt_decrypt.wasm', 'gs');
+SELECT wasm_new_instance('/home/opengauss/encrypt_decrypt.wasm', 'gs');
 
 CREATE TABLE users (
 username TEXT PRIMARY KEY,
@@ -15,9 +15,11 @@ CREATE OR REPLACE FUNCTION encrypt_password() RETURNS TRIGGER AS
 $$
     DECLARE
     BEGIN
-        INSERT INTO users(username, email, passwd) values(NEW.username, NEW.email, gs_encrypt(NEW.passwd, (SELECT secret FROM secrets LIMIT 1)))
+        INSERT INTO users(username, email, passwd) 
+            values (NEW.username, NEW.email, gs_encrypt(NEW.passwd, (SELECT secret FROM secrets LIMIT 1)));
+        RETURN NEW;
     END
-$$ LANGUAGE PLPGSQL;
+$$LANGUAGE PLPGSQL;
 
 CREATE TRIGGER insert_trigger AFTER INSERT ON users FOR EACH ROW EXECUTE PROCEDURE encrypt_password();
 

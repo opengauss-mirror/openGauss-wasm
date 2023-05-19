@@ -134,11 +134,22 @@ static char* wasm_invoke_function2(char *instanceid_str, char* funcname, std::ve
 
     WasmEdge_ConfigureContext *config_context = WasmEdge_ConfigureCreate();
     WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_Wasi);
+    WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_WasiNN);
     WasmEdge_VMContext *vm_conext = WasmEdge_VMCreate(config_context, NULL);
 
     WasmEdge_Result res = WasmEdge_VMLoadWasmFromFile(vm_conext, wasm_file.c_str());
     if (!WasmEdge_ResultOK(res)) {
-        ereport(ERROR, (errmsg("wasm_executor: wasm vm load failed")));
+        ereport(ERROR, (errmsg("wasm_executor: wasm vm load failed: %s", WasmEdge_ResultGetMessage(res))));
+    }
+
+    res = WasmEdge_VMValidate(vm_conext);
+    if (!WasmEdge_ResultOK(res)) {
+        ereport(ERROR, (errmsg("wasm_executor: wasm vm validate failed: %s", WasmEdge_ResultGetMessage(res))));
+    }
+
+    res = WasmEdge_VMInstantiate(vm_conext);
+    if (!WasmEdge_ResultOK(res)) {
+        ereport(ERROR, (errmsg("wasm_executor: wasm vm initialize failed: %s", WasmEdge_ResultGetMessage(res))));
     }
 
     const WasmEdge_ModuleInstanceContext* instance_ctx = WasmEdge_VMGetActiveModule(vm_conext);
