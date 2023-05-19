@@ -167,7 +167,6 @@ static char* wasm_invoke_function2(char *instanceid_str, char* funcname, std::ve
     for (unsigned int i = 0; i < args.size(); ++i) {
         int text_len = strlen(args[i]);
         const char *text = args[i];
-        elog(LOG, "param %d content =%s, len=%d", i, text, text_len);
         malloc_param[0] = WasmEdge_ValueGenI32(text_len + 2);
         WasmEdge_String wasmedge_func_name = WasmEdge_StringCreateByCString("opengauss_malloc");
         res = WasmEdge_VMExecute(vm_conext, wasmedge_func_name, malloc_param, 1, results, 1);
@@ -208,7 +207,7 @@ static char* wasm_invoke_function2(char *instanceid_str, char* funcname, std::ve
         ereport(ERROR, (errmsg("malloc memory for result failed, size: %ld", wasm_result_len)));
     }
     memcpy(result, wasm_result, wasm_result_len);
-    elog(LOG, "wasm_result=%s, len=%d", wasm_result, wasm_result_len);
+    result[wasm_result_len] = '\0';
 
     /* Resources deallocations. */
     WasmEdge_VMDelete(vm_conext);

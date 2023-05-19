@@ -15,15 +15,14 @@ CREATE OR REPLACE FUNCTION encrypt_password() RETURNS TRIGGER AS
 $$
     DECLARE
     BEGIN
-        INSERT INTO users(username, email, passwd) 
-            values (NEW.username, NEW.email, gs_encrypt(NEW.passwd, (SELECT secret FROM secrets LIMIT 1)));
+        UPDATE users SET passwd = gs_encrypt(NEW.passwd, (SELECT secret FROM secrets LIMIT 1)) WHERE username = NEW.username;
         RETURN NEW;
     END
 $$LANGUAGE PLPGSQL;
 
-CREATE TRIGGER insert_trigger AFTER INSERT ON users FOR EACH ROW EXECUTE PROCEDURE encrypt_password();
+CREATE TRIGGER encrypt_passwd_trigger AFTER INSERT ON users FOR EACH ROW EXECUTE PROCEDURE encrypt_password();
 
-INSERT INTO users VALUES ('peter', 'peter@huawei.com', 'role_ruler');
-INSERT INTO users VALUES ('josh', 'josh@huawei.com', 'turkey');
+INSERT INTO users VALUES ('peter', 'peter@huawei.com', 'roe-deer');
+INSERT INTO users VALUES ('josh', 'josh@huawei.com', 'turso');
 
-SELECT username, passwd, decrypt(passwd, (SELECT secret FROM secrets LIMIT 1)) AS decrypted FROM users;
+SELECT username, passwd, gs_decrypt(passwd, (SELECT secret FROM secrets LIMIT 1)) AS decrypted FROM users;
