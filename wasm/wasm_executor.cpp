@@ -28,6 +28,18 @@ extern "C" Datum wasm_invoke_function_text_2(PG_FUNCTION_ARGS);
 static const char * const malloc_func = "opengauss_malloc";
 static const char OPENGAUSS_TEXT = 3;
 
+typedef struct WasmInstInfo {
+    wasm_engine_t *wasm_engine;
+
+    wasmtime_store_t *wasm_store;
+
+    wasmtime_module_t *wasm_module;
+
+    wasmtime_instance_t instance;
+
+    std::string wasm_file;
+} WasmInstInfo;
+
 typedef struct TupleInstanceState {
     TupleDesc tupd;
     std::map<int64, std::string>::iterator currindex;
@@ -100,6 +112,21 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
     WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_Wasi);
     WasmEdge_VMContext *vm_conext = WasmEdge_VMCreate(config_context, NULL);
 
+    WasmEdge_Result res = WasmEdge_VMLoadWasmFromFile(vm_conext, wasm_file.c_str());
+    if (!WasmEdge_ResultOK(res)) {
+        ereport(ERROR, (errmsg("wasm_executor: wasm vm load failed: %s", WasmEdge_ResultGetMessage(res))));
+    }
+
+    res = WasmEdge_VMValidate(vm_conext);
+    if (!WasmEdge_ResultOK(res)) {
+        ereport(ERROR, (errmsg("wasm_executor: wasm vm validate failed: %s", WasmEdge_ResultGetMessage(res))));
+    }
+
+    res = WasmEdge_VMInstantiate(vm_conext);
+    if (!WasmEdge_ResultOK(res)) {
+        ereport(ERROR, (errmsg("wasm_executor: wasm vm initialize failed: %s", WasmEdge_ResultGetMessage(res))));
+    }
+
     WasmEdge_Value params[args.size()];
     for (unsigned int i = 0; i < args.size(); ++i) {
         params[i] = WasmEdge_ValueGenI64(args[i]);
@@ -107,7 +134,7 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
 
     WasmEdge_Value result[1];
     WasmEdge_String wasm_func = WasmEdge_StringCreateByCString(funcname);
-    WasmEdge_Result ret = WasmEdge_VMRunWasmFromFile(vm_conext, wasm_file.c_str(), wasm_func, params, args.size(), result, 1);
+    WasmEdge_Result ret = WasmEdge_VMExecute(vm_conext, wasm_func, params, args.size(), result, 1);
     if (!WasmEdge_ResultOK(ret)) {
         WasmEdge_VMDelete(vm_conext);
         WasmEdge_ConfigureDelete(config_context);
