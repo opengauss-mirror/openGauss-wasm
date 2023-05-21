@@ -22,7 +22,7 @@ $$LANGUAGE PLPGSQL;
 
 CREATE TRIGGER encrypt_passwd_trigger AFTER INSERT ON users FOR EACH ROW EXECUTE PROCEDURE encrypt_password();
 
-INSERT INTO users VALUES ('peter', 'peter@huawei.com', 'roe-deer');
-INSERT INTO users VALUES ('josh', 'josh@huawei.com', 'turso');
+INSERT INTO users VALUES ('nelson', 'nelson@huawei.com', 'nelson_passwd');
+INSERT INTO users VALUES ('mickle', 'josh@huawei.com', 'mickle_passwd');
 
 SELECT username, passwd, gs_decrypt(passwd, (SELECT secret FROM secrets LIMIT 1)) AS decrypted FROM users;

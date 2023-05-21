@@ -267,24 +267,8 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
     // elog(DEBUG1, "wasm_executor:init exported func info for instanceid %ld", instanceid); 
 }
 
-PG_FUNCTION_INFO_V1(wasm_create_instance);
-Datum wasm_create_instance(PG_FUNCTION_ARGS) 
-{
-    int64 uuid = generate_uuid(PG_GETARG_DATUM(0));
-    text *arg = PG_GETARG_TEXT_P(0);
-    char* filepath = text_to_cstring(arg);
-    canonicalize_path(filepath);
-    
-    if (!superuser())
-        ereport(ERROR,
-            (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), (errmsg("wasm_executor: must be system admin to create wasm instance"))));
-
-    WasmVM *wasmVM = find_wasm_vm(uuid);
-    if (wasmVM != NULL) {
-        ereport(NOTICE, (errmsg("wasm_executor: instance already created for %s", filepath)));
-        return UInt32GetDatum(uuid);
-    }
-    
+static WasmVM* create_wasm_instance_internal(char* filepath)
+{       
     WasmEdge_ConfigureContext *config_context = WasmEdge_ConfigureCreate();
     WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_Wasi);
     WasmEdge_ConfigureAddHostRegistration(config_context, WasmEdge_HostRegistration_WasiNN);
@@ -304,15 +288,39 @@ Datum wasm_create_instance(PG_FUNCTION_ARGS)
 
     result = WasmEdge_VMInstantiate(vm_cxt);
     if (!WasmEdge_ResultOK(result)) {
+        WasmEdge_ConfigureDelete(config_context);
         ereport(ERROR, (errmsg("wasm_executor: wasm vm initialize failed: %s", WasmEdge_ResultGetMessage(result))));
     }
+    WasmEdge_ConfigureDelete(config_context);
 
-    wasmVM = new (std::nothrow)WasmVM();
+    WasmVM *wasmVM = new (std::nothrow)WasmVM();
     wasmVM->vm_context = vm_cxt;
     wasmVM->wasm_file = filepath;
+    
+    return wasmVM;
+}
+
+PG_FUNCTION_INFO_V1(wasm_create_instance);
+Datum wasm_create_instance(PG_FUNCTION_ARGS) 
+{
+    int64 uuid = generate_uuid(PG_GETARG_DATUM(0));
+    text *arg = PG_GETARG_TEXT_P(0);
+    char* filepath = text_to_cstring(arg);
+    canonicalize_path(filepath);
+
+    if (!superuser())
+        ereport(ERROR,
+            (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), (errmsg("wasm_executor: must be system admin to create wasm instance"))));
+
+    WasmVM *wasmVM = find_wasm_vm(uuid);
+    if (wasmVM != NULL) {
+        ereport(NOTICE, (errmsg("wasm_executor: instance already created for %s", filepath)));
+        return UInt32GetDatum(uuid);
+    }
+    
+    wasmVM = create_wasm_instance_internal(filepath);
     instances.insert(std::pair<int64, WasmVM*>(uuid, wasmVM));
 
-    WasmEdge_ConfigureDelete(config_context);
     return Int64GetDatum(uuid);
 }
 
@@ -562,4 +570,16 @@ Datum wasm_invoke_function_text_2(PG_FUNCTION_ARGS)
 
     char* result = wasm_invoke_function2(instanceid, funcname, params);
     return CStringGetTextDatum(result);
+}
+
+/*
+ * Module Load Callback
+ */
+void _PG_init(void)
+{
+    /**
+     * When openGauss start up and load the wasm_executor.so, it should call
+     * this function to check whether it has created instances.
+     * If has, call the create instance interface to restore them.
+     */
 }
