@@ -29,7 +29,7 @@ RUN cp -f /home/opengauss/bashrc /home/opengauss/.bashrc && \
         wget -q https://opengauss.obs.cn-south-1.myhuaweicloud.com/5.0.0/binarylibs/openGauss-third_party_binarylibs_openEuler_arm.tar.gz -O openGauss_third.tar.gz; \
     fi && \
     tar -xf openGauss_third.tar.gz && mv openGauss-third_party_binarylibs* binarylibs && rm -f openGauss_third.tar.gz && \
-    curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2 && source /home/opengauss/.wasmedge/env && \
+    curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2 && source /home/opengauss/.bashrc && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source "$HOME/.cargo/env" && \
     rustup target add wasm32-unknown-unknown && \
     cargo install wasm-gc && source /home/opengauss/.bashrc && \
@@ -45,7 +45,7 @@ RUN cp -f /home/opengauss/bashrc /home/opengauss/.bashrc && \
     cd openGauss-server-v5.0.0/contrib/wasm && make && make install && \
     cd /home/opengauss && \
     chmod +x /home/opengauss/entrypoint.sh && \
-    cp /home/opengauss/openGauss-server-v5.0.0/contrib/wasm/examples/*  /home/opengauss && \
+    cp -rf /home/opengauss/openGauss-server-v5.0.0/contrib/wasm/examples/*  /home/opengauss && \
     sudo rm -rf /home/opengauss/binarylibs && \
     sudo rm -rf /home/opengauss/openGauss-server-v5.0.0 && \ 
     sudo rm -rf /home/opengauss/openGauss-wasm && \

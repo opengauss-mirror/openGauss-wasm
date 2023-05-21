@@ -1,11 +1,11 @@
-CREATE OR REPLACE FUNCTION fibonacci (n integer) RETURNS decimal AS $$ 
+CREATE OR REPLACE FUNCTION sql_fib (n integer) RETURNS decimal AS $$ 
 DECLARE
     counter bigint := 1; 
     i decimal := 0;
     j decimal := 1;
 BEGIN
-    IF (n < 1) THEN
-        RETURN 0;
+    IF (n <= 1) THEN
+        RETURN n;
     END IF; 
 
     WHILE counter <= n LOOP
@@ -16,3 +16,4 @@ BEGIN
     RETURN i;
 END;
 $$ LANGUAGE plpgsql;
+

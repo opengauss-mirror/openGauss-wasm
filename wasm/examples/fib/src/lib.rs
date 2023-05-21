@@ -1,9 +1,9 @@
-#[no_mangle]
-pub extern "C" fn fibonacci(n: u32) -> u64 {
-    if n <= 0 {
-        0
-    } else if n == 1 {
-        1
+use opengauss_bindgen::*;
+
+#[opengauss_bindgen::opengauss_bindgen]
+fn fib(n: u64) -> u64 {
+    if n <= 1 {
+        n
     } else {
         let mut accumulator = 0;
         let mut last = 0;
