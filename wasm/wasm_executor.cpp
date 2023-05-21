@@ -4,6 +4,7 @@
 #include "access/hash.h"
 #include "miscadmin.h"
 #include "funcapi.h"
+#include "executor/spi.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -582,4 +583,29 @@ void _PG_init(void)
      * this function to check whether it has created instances.
      * If has, call the create instance interface to restore them.
      */
+    int ret;
+    if ((ret = SPI_connect()) < 0) {
+        elog(ERROR, "wasm_executor: SPI_connect returned %d", ret);
+    }
+
+    if ((ret = SPI_exec("SELECT id, wasm_file FROM wasm.instances", 0)) < 0) {
+        elog(ERROR, "wasm_executor: SPI_connect exec query failed: %d", ret);
+    }
+    
+    if (SPI_tuptable) {
+        TupleDesc tupdesc = SPI_tuptable->tupdesc;
+        SPITupleTable *tuptable = SPI_tuptable;
+
+        int64 rows = SPI_processed;
+        for (int i = 0; i < rows; i++) {
+            HeapTuple tuple = tuptable->vals[i];
+            char* instanceId = SPI_getvalue(tuple, tupdesc, 1);
+            char *filepath = SPI_getvalue(tuple, tupdesc, 2);
+            
+            WasmVM *wasmVM = create_wasm_instance_internal(filepath);
+            instances.insert(std::pair<int64, WasmVM*>(atol(instanceId), wasmVM));
+        }
+    }
+    
+    SPI_finish();
 }
