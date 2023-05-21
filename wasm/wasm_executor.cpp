@@ -65,7 +65,7 @@ static std::string find_wasm_file(int64 instanceid)
         }
         itor++;
     }
-    elog(DEBUG1, "wasm_executor: not find instance info for instanceid %ld", instanceid);
+    // elog(DEBUG1, "wasm_executor: not find instance info for instanceid %ld", instanceid);
     return "";
 }
 
@@ -78,7 +78,7 @@ static std::vector<WasmFuncInfo*>* find_exported_func_list(int64 instanceid)
         }
         itor++;
     }
-    elog(DEBUG1, "wasm_executor: not find exported func info for instanceid %ld", instanceid);
+    // elog(DEBUG1, "wasm_executor: not find exported func info for instanceid %ld", instanceid);
     return NULL;
 }
 
@@ -227,7 +227,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
     if (functions != NULL) {
         inter_call_data->currindex = functions->begin();
         inter_call_data->lastindex = functions->end();
-        elog(DEBUG1, "wasm_executor:find exported func info for instanceid %ld", instanceid);
+        //elog(DEBUG1, "wasm_executor:find exported func info for instanceid %ld", instanceid);
         return;
     }
 
@@ -251,9 +251,9 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
     for (unsigned int i = 0; i < rel_func_num && i < BUF_LEN; ++i) {
         char tmp_buffer[BUF_LEN] = {0};
         uint32_t func_name_len = WasmEdge_StringCopy(func_name_list[i], tmp_buffer, sizeof(tmp_buffer));
-        elog(DEBUG1, "wasm_executor: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
+        // elog(DEBUG1, "wasm_executor: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
         if (strcmp(tmp_buffer, malloc_func) == 0) {
-            elog(DEBUG1, "wasm_executor: opengauss_malloc is not need to export to user\n");
+            // elog(DEBUG1, "wasm_executor: opengauss_malloc is not need to export to user\n");
             continue;
         }
 
@@ -307,7 +307,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
 
     inter_call_data->currindex = functions->begin();
     inter_call_data->lastindex = functions->end();
-    elog(DEBUG1, "wasm_executor:init exported func info for instanceid %ld", instanceid); 
+    // elog(DEBUG1, "wasm_executor:init exported func info for instanceid %ld", instanceid); 
 }
 
 PG_FUNCTION_INFO_V1(wasm_create_instance);
