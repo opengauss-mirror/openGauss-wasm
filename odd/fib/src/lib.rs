@@ -1,5 +1,3 @@
-use opengauss_bindgen::*;
-
 #[opengauss_bindgen::opengauss_bindgen]
 fn fib(n: u64) -> u64 {
     if n <= 1 {
