@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo "cargo build --release --target wasm32-unknown-unknown"
+cargo build --release --target wasm32-unknown-unknown
+
+echo "wasm-opt -Os  target/wasm32-unknown-unknown/release/opengauss_encrypt_decrypt.wasm  -o encrypt_decrypt.wasm"
+wasm-opt -Os  target/wasm32-unknown-unknown/release/opengauss_encrypt_decrypt.wasm  -o encrypt_decrypt.wasm
+

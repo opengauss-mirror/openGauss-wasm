@@ -1,0 +1,1 @@
+CREATE TRIGGER encrypt_passwd_trigger AFTER INSERT ON users FOR EACH ROW EXECUTE PROCEDURE encrypt_password();

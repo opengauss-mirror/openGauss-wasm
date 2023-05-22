@@ -1,0 +1,1 @@
+SELECT wasm_new_instance('/home/opengauss/odd/fib/fib.wasm', 'gs');
