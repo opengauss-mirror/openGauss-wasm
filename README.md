@@ -1,4 +1,4 @@
-A complete and mature WebAssembly runtime for openGauss based on [WasmEdge](https://wasmedge.org/book/zh/index.html).
+A complete and mature WebAssembly runtime for openGauss based on [WasmEdge](https://wasmedge.org/book/en/index.html).
 It's an original way to extend your favorite database capabilities.
 
 > Note This project is inspired by [wasmer-postgres](https://github.com/wasmerio/wasmer-postgres)
@@ -12,7 +12,7 @@ Features:
     importantly, completely safe and sandboxed.
 
 > Note: The project is still in heavy development. This is a
-0.1.0 version. Some API are missing and are under implementation. But
+0.2.0 version. Some API are missing and are under implementation. But
 it's fun to play with it.
 
 # Installation
@@ -51,8 +51,10 @@ And you are ready to go!
 Consider the `examples/sum.rs` program:
 
 ```rust
-#[no_mangle]
-pub extern fn sum(x: i32, y: i32) -> i32 {
+use opengauss_bindgen::*;
+
+#[opengauss_bindgen::opengauss_bindgen]
+fn sum(x: i32, y: i32) -> i32 {
     x + y
 }
 ```
@@ -69,12 +71,12 @@ cargo install wasm-opt
 ```
 Then create a project using cargo
 ```
-cargo new hello --lib
+cargo new sum --lib
 ```
 The file Cargo.toml (aka "manifest") contains the project's configuration. Leave everything, but append a new block called [lib]. The result should look something this
 ```
 [package]
-name = "hello"
+name = "sum"
 version = "0.1.0"
 edition = "2021"
 
@@ -90,11 +92,11 @@ And then compile the project to Wasm and shrink the wasm output.
 
 ```
 cargo build --target wasm32-unknown-unknown --release
-wasm-opt -Os target/wasm32-unknown-unknown/release/hello.wasm -o hello.wasm
+wasm-opt -Os target/wasm32-unknown-unknown/release/sum.wasm -o sum.wasm
 ```
 
 Once compiled to WebAssembly, one obtains a similar WebAssembly binary
-to `examples/sum.wasm`. To use the `sum` exported function, first, 
+to `examples/sum/sum.wasm`. To use the `sum` exported function, first, 
 create a new instance of the WebAssembly module, and second, 
 call the `sum` function.
 
@@ -130,27 +132,36 @@ Let's inspect a little bit further the `wasm_sum` function:
 \x
 \df+ wasm_sum
 Schema              | public
-Name                | wasm_sum
-Result data type    | integer
-Argument data types | integer, integer
+Name                | ws_sum
+Result data type    | bigint
+Argument data types | bigint, bigint
 Type                | normal
 Volatility          | volatile
-Parallel            | unsafe
-Owner               | ...
+Owner               | opengauss
 Language            | plpgsql
-Source code         | ...
+Source code         | ***
 Description         |
 fencedmode          | f
 propackage          | f
 prokind             | f
 ```
 
-The openGauss `wasm_sum` signature is `(integer, integer) -> integer`,
+The openGauss `wasm_sum` signature is `(bigint, bigint) -> bigint`,
 which maps the Rust `sum` signature `(i32, i32) -> i32`.
 
-So far, only the WebAssembly types `i32` and `i64` are
-supported; they respectively map to `integer` and `bigint`
-in openGauss. Floats are partly implemented for the moment.
+So far, the data types are mapped as follws:
+**  1. integers are passed as i64
+**  2. floats are passed as f64
+**  3. Strings are pointers, with the first byte indicating the type - OPENGAUSS_TEXT
+
+Once you have done the works with wasm functions, you can call `wasm_delete_instance(id)`
+to drop the wasm instance, which id means the instance id returned from `wasm_create_instance()`.
+```
+openGauss=# select wasm_delete_instance(2440124954);
+                   wasm_delete_instance
+-----------------------------------------------------------
+ /home/opengauss/openGauss-wasm/wasm/examples/sum/sum.wasm
+```
 
 # Quickstart
 
