@@ -1,1 +1,0 @@
-SELECT wasm_new_instance('/home/opengauss/odd/encrypt_decrypt/encrypt_decrypt.wasm', 'gs');

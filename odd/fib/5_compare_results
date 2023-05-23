@@ -1,0 +1,22 @@
+#!/bin/bash
+
+INPUTS=(0 10 30 50 70 90)
+
+grep "Time: " ./sql.log | awk -F ":" '{print $2}' > ./sql.time
+grep "Time: " ./wasm.log | awk -F ":"  '{print $2}' > ./wasm.time
+
+echo "|  INPUT  |   PLPGSQL   |     WASM     |"
+echo "---------------------------------------"
+
+for line in `seq 1 5`
+do 
+    sql_time_tmp=`sed -n "${line}p" ./sql.time`
+    wasm_time_tmp=`sed -n "${line}p" ./wasm.time`
+    echo "|    ${INPUTS[${line}]}   |  ${sql_time_tmp}  |  ${wasm_time_tmp}  |"
+done
+
+echo "---------------------------------------"
+
+
+rm -f ./sql.time
+rm -f ./wasm.time

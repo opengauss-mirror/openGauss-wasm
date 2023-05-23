@@ -1,1 +1,0 @@
-SELECT username, passwd, gs_decrypt(passwd, (SELECT secret FROM secrets LIMIT 1)) AS decrypted FROM users;

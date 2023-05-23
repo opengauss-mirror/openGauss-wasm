@@ -1,3 +1,5 @@
+
+gsql -d opengauss -e -c '
 CREATE OR REPLACE FUNCTION sql_fib (n integer) RETURNS decimal AS $$ 
 DECLARE
     counter bigint := 1; 
@@ -15,6 +17,6 @@ BEGIN
 
     RETURN i;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;'
 
 

@@ -7,3 +7,7 @@ cargo build --release --target wasm32-unknown-unknown
 
 echo "wasm-opt -Os  target/wasm32-unknown-unknown/release/fib.wasm  -o fib.wasm"
 wasm-opt -Os  target/wasm32-unknown-unknown/release/fib.wasm  -o fib.wasm
+
+gsql -d opengauss -e -c "SELECT wasm_new_instance('/home/opengauss/odd/fib/fib.wasm', 'ws');"
+
+gsql -d opengauss -e -c "select * from wasm.exported_functions;"

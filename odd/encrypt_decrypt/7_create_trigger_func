@@ -1,8 +1,0 @@
-CREATE OR REPLACE FUNCTION encrypt_password() RETURNS TRIGGER AS
-$$
-    DECLARE
-    BEGIN
-        UPDATE users SET passwd = gs_encrypt(NEW.passwd, (SELECT secret FROM secrets LIMIT 1)) WHERE username = NEW.username;
-        RETURN NEW;
-    END
-$$LANGUAGE PLPGSQL;

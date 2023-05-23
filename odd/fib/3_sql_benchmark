@@ -1,0 +1,3 @@
+
+gsql -d opengauss -e -f ./sql_benchmark.sql | tee ./sql.log
+
