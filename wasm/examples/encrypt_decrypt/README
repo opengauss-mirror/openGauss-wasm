@@ -1,5 +1,5 @@
 
-CREATE EXTENSION wasm_executor;
+CREATE EXTENSION wasm_engine;
 
 SELECT wasm_new_instance('/home/opengauss/encrypt_decrypt.wasm', 'gs');
 
