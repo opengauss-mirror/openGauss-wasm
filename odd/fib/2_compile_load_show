@@ -11,3 +11,7 @@ wasm-opt -Os  target/wasm32-unknown-unknown/release/fib.wasm  -o fib.wasm
 gsql -d opengauss -e -c "SELECT wasm_new_instance('/home/opengauss/odd/fib/fib.wasm', 'ws');"
 
 gsql -d opengauss -e -c "select * from wasm.exported_functions;"
+
+gsql -d opengauss -c "select ws_fib(1);" -q -o ./init.log
+
+rm -f ./init.log

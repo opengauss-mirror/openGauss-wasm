@@ -1,4 +1,4 @@
-gsql -d opengauss -e -c "CREATE OR REPLACE FUNCTION encrypt_password() 
+gsql -d opengauss -e -c 'CREATE OR REPLACE FUNCTION encrypt_password() 
 RETURNS TRIGGER AS
 $$
     DECLARE
@@ -8,9 +8,9 @@ $$
 	WHERE username = NEW.username;
         RETURN NEW;
     END
-$$LANGUAGE PLPGSQL;"
+$$LANGUAGE PLPGSQL;'
 
-gsql -d opengauss -e -c "CREATE TRIGGER encrypt_passwd_trigger AFTER 
+gsql -d opengauss -e -c 'CREATE TRIGGER encrypt_passwd_trigger AFTER 
     INSERT ON users 
-FOR EACH ROW EXECUTE PROCEDURE encrypt_password();"
+FOR EACH ROW EXECUTE PROCEDURE encrypt_password();'
 

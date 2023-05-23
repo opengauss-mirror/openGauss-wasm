@@ -5,7 +5,7 @@ INPUTS=(0 10 30 50 70 90)
 grep "Time: " ./sql.log | awk -F ":" '{print $2}' > ./sql.time
 grep "Time: " ./wasm.log | awk -F ":"  '{print $2}' > ./wasm.time
 
-echo "|  INPUT  |   PLPGSQL   |     WASM     |"
+echo "|  INPUT  |   PLPGSQL   |     WASM    |"
 echo "---------------------------------------"
 
 for line in `seq 1 5`
