@@ -1,3 +1,5 @@
+gsql -d postgres -c "create database if not exists opengauss" -q -o ./out.log
+
 gsql -d opengauss -e -c "CREATE TABLE users (
     username TEXT PRIMARY KEY,
     email TEXT,
@@ -7,3 +9,4 @@ gsql -d opengauss -e -c "CREATE TABLE users (
 gsql -d opengauss -e -c "CREATE TABLE secrets(secret text);
 INSERT INTO secrets VALUES ('s3cretk3y');"
 
+rm -f ./out.log

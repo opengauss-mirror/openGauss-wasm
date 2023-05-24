@@ -1,10 +1,10 @@
 
 gsql -d opengauss -e -c '
-CREATE OR REPLACE FUNCTION sql_fib (n integer) RETURNS decimal AS $$ 
+CREATE OR REPLACE FUNCTION sql_fib (n bigint) RETURNS bigint AS $$ 
 DECLARE
     counter bigint := 1; 
-    i decimal := 0;
-    j decimal := 1;
+    i bigint := 0;
+    j bigint := 1;
 BEGIN
     IF (n <= 1) THEN
         RETURN n;
