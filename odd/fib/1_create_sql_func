@@ -1,0 +1,22 @@
+
+gsql -d opengauss -e -c '
+CREATE OR REPLACE FUNCTION sql_fib (n bigint) RETURNS bigint AS $$ 
+DECLARE
+    counter bigint := 1; 
+    i bigint := 0;
+    j bigint := 1;
+BEGIN
+    IF (n <= 1) THEN
+        RETURN n;
+    END IF; 
+
+    WHILE counter <= n LOOP
+        counter := counter + 1; 
+        SELECT j, i + j INTO i, j;
+    END LOOP; 
+
+    RETURN i;
+END;
+$$ LANGUAGE plpgsql;'
+
+

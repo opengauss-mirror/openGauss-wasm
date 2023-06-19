@@ -27,7 +27,7 @@ You can install the wasmedge as simple as
 
 Refer to [https://wasmedge.org/book/en/quick_start/install.html](https://wasmedge.org/book/en/quick_start/install.html) for more details.
 
-After that, run `CREATE EXTENSION wasm_executor` in a
+After that, run `CREATE EXTENSION wasm_engine` in a
 openGauss shell. One new function will appear: `wasm_new_instance`; It must be
 called with the absolute path to the shared library. It looks like
 this:
@@ -40,7 +40,7 @@ $ # Install the extension in the opengauss
 $ make install
 
 $ # Activate and initialize the extension.
-$ gsql -d postgres -c 'CREATE EXTENSION wasm_executor'
+$ gsql -d postgres -c 'CREATE EXTENSION wasm_engine'
 ```
 
 And you are ready to go!

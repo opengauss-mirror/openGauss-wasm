@@ -71,7 +71,7 @@ static WasmVM* find_wasm_vm(int64 instanceid)
         }
         itor++;
     }
-    // elog(DEBUG1, "wasm_executor: not find instance info for instanceid %ld", instanceid);
+    // elog(DEBUG1, "wasm_engine: not find instance info for instanceid %ld", instanceid);
     return NULL;
 }
 
@@ -84,7 +84,7 @@ static std::vector<WasmFuncInfo*>* find_exported_func_list(int64 instanceid)
         }
         itor++;
     }
-    // elog(DEBUG1, "wasm_executor: not find exported func info for instanceid %ld", instanceid);
+    // elog(DEBUG1, "wasm_engine: not find exported func info for instanceid %ld", instanceid);
     return NULL;
 }
 
@@ -99,7 +99,7 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
     int64 instanceid = atol(instanceid_str);
     WasmVM* wasmVM = find_wasm_vm(instanceid);
     if (wasmVM == NULL) {
-        ereport(ERROR, (errmsg("wasm_executor: instance with id %ld is not find", instanceid)));
+        ereport(ERROR, (errmsg("wasm_engine: instance with id %ld is not find", instanceid)));
     }
 
     WasmEdge_Value params[args.size()];
@@ -112,7 +112,7 @@ static int64 wasm_invoke_function(char *instanceid_str, char* funcname, std::vec
     WasmEdge_Result ret = WasmEdge_VMExecute(wasmVM->vm_context, wasm_func, params, args.size(), result, 1);
     if (!WasmEdge_ResultOK(ret)) {
         WasmEdge_StringDelete(wasm_func);
-        ereport(ERROR, (errmsg("wasm_executor: call func %s failed", funcname)));
+        ereport(ERROR, (errmsg("wasm_engine: call func %s failed", funcname)));
     } 
     int64 ret_val = 0;
     ret_val = WasmEdge_ValueGetI64(result[0]);
@@ -127,7 +127,7 @@ static char* wasm_invoke_function2(char *instanceid_str, char* funcname, std::ve
     int64 instanceid = atol(instanceid_str);
     WasmVM* wasmVM = find_wasm_vm(instanceid);
     if (wasmVM == NULL) {
-        ereport(ERROR, (errmsg("wasm_executor: instance with id %ld is not find", instanceid)));
+        ereport(ERROR, (errmsg("wasm_engine: instance with id %ld is not find", instanceid)));
     }
 
     WasmEdge_VMContext *vm_context = wasmVM->vm_context;
@@ -152,7 +152,7 @@ static char* wasm_invoke_function2(char *instanceid_str, char* funcname, std::ve
         res = WasmEdge_VMExecute(vm_context, wasmedge_func_name, malloc_param, 1, results, 1);
         WasmEdge_StringDelete(wasmedge_func_name);
         if (!WasmEdge_ResultOK(res)) {
-            ereport(ERROR, (errmsg("wasm_executor: call opengauss malloc failed")));
+            ereport(ERROR, (errmsg("wasm_engine: call opengauss malloc failed")));
         }
         mem_offset = WasmEdge_ValueGetI32(results[0]);
 
@@ -167,7 +167,7 @@ static char* wasm_invoke_function2(char *instanceid_str, char* funcname, std::ve
     res = WasmEdge_VMExecute(vm_context, wasmedge_func_name, params, args.size(), results, 1);
     WasmEdge_StringDelete(wasmedge_func_name);
     if (!WasmEdge_ResultOK(res)) {
-        ereport(ERROR, (errmsg("wasm_executor: call func %s failed", funcname)));
+        ereport(ERROR, (errmsg("wasm_engine: call func %s failed", funcname)));
     }
 
     int type_offset = WasmEdge_ValueGetI32(results[0]);
@@ -196,14 +196,14 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
 {
     WasmVM *wasmVM = find_wasm_vm(instanceid);
     if (wasmVM == NULL) {
-        ereport(ERROR, (errmsg("wasm_executor: instance with id %ld is not find", instanceid)));
+        ereport(ERROR, (errmsg("wasm_engine: instance with id %ld is not find", instanceid)));
     }
 
     std::vector<WasmFuncInfo *>* functions = find_exported_func_list(instanceid);
     if (functions != NULL) {
         inter_call_data->currindex = functions->begin();
         inter_call_data->lastindex = functions->end();
-        //elog(DEBUG1, "wasm_executor:find exported func info for instanceid %ld", instanceid);
+        //elog(DEBUG1, "wasm_engine:find exported func info for instanceid %ld", instanceid);
         return;
     }
 
@@ -220,20 +220,20 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
     for (unsigned int i = 0; i < rel_func_num && i < BUF_LEN; ++i) {
         char tmp_buffer[BUF_LEN] = {0};
         uint32_t func_name_len = WasmEdge_StringCopy(func_name_list[i], tmp_buffer, sizeof(tmp_buffer));
-        // elog(DEBUG1, "wasm_executor: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
+        // elog(DEBUG1, "wasm_engine: exported function string length: %u, name: %s\n", func_name_len, tmp_buffer);
         if (strcmp(tmp_buffer, malloc_func) == 0) {
-            // elog(DEBUG1, "wasm_executor: opengauss_malloc is not need to export to user\n");
+            // elog(DEBUG1, "wasm_engine: opengauss_malloc is not need to export to user\n");
             continue;
         }
 
         uint32_t param_nums = WasmEdge_FunctionTypeGetParametersLength(func_type_list[i]);
         if (param_nums > MAX_PARAMS) {
-            ereport(ERROR, (errmsg("wasm_executor: func %s has more than 10 params which not support", tmp_buffer)));
+            ereport(ERROR, (errmsg("wasm_engine: func %s has more than 10 params which not support", tmp_buffer)));
         }
 
         uint32_t return_num = WasmEdge_FunctionTypeGetReturnsLength(func_type_list[i]);
         if (return_num > MAX_RETURNS) {
-            ereport(ERROR, (errmsg("wasm_executor: func %s has more than 1 return value which not support", tmp_buffer)));
+            ereport(ERROR, (errmsg("wasm_engine: func %s has more than 1 return value which not support", tmp_buffer)));
         }
 
         WasmFuncInfo *funcinfo = new(std::nothrow)WasmFuncInfo();
@@ -246,7 +246,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
             } else if (param_buffer[j] == WasmEdge_ValType_I64) {
                 funcinfo->inputs.push_back("bigint");
             } else {
-                ereport(ERROR, (errmsg("wasm_executor: not support the value type(%d) for now", param_buffer[j])));
+                ereport(ERROR, (errmsg("wasm_engine: not support the value type(%d) for now", param_buffer[j])));
             }
         }
         
@@ -256,7 +256,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
         } else if (param_buffer[0] == WasmEdge_ValType_I64) {
             funcinfo->outputs = "bigint";
         } else {
-            ereport(ERROR, (errmsg("wasm_executor: not support the value type(%d) for now", param_buffer[0])));
+            ereport(ERROR, (errmsg("wasm_engine: not support the value type(%d) for now", param_buffer[0])));
         }
 
         funcinfo->funcname = std::string(tmp_buffer, func_name_len);
@@ -265,7 +265,7 @@ static void wasm_export_funcs_query(int64 instanceid, TupleFuncState* inter_call
 
     inter_call_data->currindex = functions->begin();
     inter_call_data->lastindex = functions->end();
-    // elog(DEBUG1, "wasm_executor:init exported func info for instanceid %ld", instanceid); 
+    // elog(DEBUG1, "wasm_engine:init exported func info for instanceid %ld", instanceid); 
 }
 
 static WasmVM* create_wasm_instance_internal(char* filepath)
@@ -278,19 +278,19 @@ static WasmVM* create_wasm_instance_internal(char* filepath)
     WasmEdge_Result result = WasmEdge_VMLoadWasmFromFile(vm_cxt, filepath);
     if (!WasmEdge_ResultOK(result)) {
         WasmEdge_ConfigureDelete(config_context);
-        ereport(ERROR, (errmsg("wasm_executor: failed to load %s", filepath)));
+        ereport(ERROR, (errmsg("wasm_engine: failed to load %s", filepath)));
     }
 
     result = WasmEdge_VMValidate(vm_cxt);
     if (!WasmEdge_ResultOK(result)) {
         WasmEdge_ConfigureDelete(config_context);
-        ereport(ERROR, (errmsg("wasm_executor: wasm file validation failed %s", WasmEdge_ResultGetMessage(result))));
+        ereport(ERROR, (errmsg("wasm_engine: wasm file validation failed %s", WasmEdge_ResultGetMessage(result))));
     }
 
     result = WasmEdge_VMInstantiate(vm_cxt);
     if (!WasmEdge_ResultOK(result)) {
         WasmEdge_ConfigureDelete(config_context);
-        ereport(ERROR, (errmsg("wasm_executor: wasm vm initialize failed: %s", WasmEdge_ResultGetMessage(result))));
+        ereport(ERROR, (errmsg("wasm_engine: wasm vm initialize failed: %s", WasmEdge_ResultGetMessage(result))));
     }
     WasmEdge_ConfigureDelete(config_context);
 
@@ -311,11 +311,11 @@ Datum wasm_create_instance(PG_FUNCTION_ARGS)
 
     if (!superuser())
         ereport(ERROR,
-            (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), (errmsg("wasm_executor: must be system admin to create wasm instance"))));
+            (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), (errmsg("wasm_engine: must be system admin to create wasm instance"))));
 
     WasmVM *wasmVM = find_wasm_vm(uuid);
     if (wasmVM != NULL) {
-        ereport(NOTICE, (errmsg("wasm_executor: instance already created for %s", filepath)));
+        ereport(NOTICE, (errmsg("wasm_engine: instance already created for %s", filepath)));
         return UInt32GetDatum(uuid);
     }
     
@@ -333,14 +333,14 @@ Datum wasm_drop_instance(PG_FUNCTION_ARGS)
     
     if (!superuser())
         ereport(ERROR,
-            (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), (errmsg("wasm_executor: must be system admin to delete wasm instance"))));
+            (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), (errmsg("wasm_engine: must be system admin to delete wasm instance"))));
 
     std::map<int64, WasmVM*>::iterator institor = instances.begin();
     while (institor != instances.end() && institor->first != instanceid) {
         institor++;
     }
     if (institor == instances.end()) {
-        ereport(ERROR, (errmsg("wasm_executor:instance with id=%ld not exist", instanceid)));
+        ereport(ERROR, (errmsg("wasm_engine:instance with id=%ld not exist", instanceid)));
     }
     module_path = CStringGetTextDatum((institor->second->wasm_file).c_str());
     instances.erase(institor);
@@ -368,7 +368,7 @@ Datum wasm_get_instances(PG_FUNCTION_ARGS)
 
         /* Build a tuple descriptor for our result type */
         if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
-            elog(ERROR, "wasm_executor: return type must be a row type");
+            elog(ERROR, "wasm_engine: return type must be a row type");
 
         inter_call_data->tupd = tupdesc;
         inter_call_data->currindex = instances.begin();
@@ -421,7 +421,7 @@ Datum wasm_get_exported_functions(PG_FUNCTION_ARGS)
         
         /* Build a tuple descriptor for our result type */
         if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
-            elog(ERROR, "wasm_executor: return type must be a row type");
+            elog(ERROR, "wasm_engine: return type must be a row type");
 
         inter_call_data->tupd = tupdesc;
         wasm_export_funcs_query(instanceid, inter_call_data);
@@ -579,17 +579,17 @@ Datum wasm_invoke_function_text_2(PG_FUNCTION_ARGS)
 void _PG_init(void)
 {
     /**
-     * When openGauss start up and load the wasm_executor.so, it should call
+     * When openGauss start up and load the wasm_engine.so, it should call
      * this function to check whether it has created instances.
      * If has, call the create instance interface to restore them.
      */
     int ret;
     if ((ret = SPI_connect()) < 0) {
-        elog(ERROR, "wasm_executor: SPI_connect returned %d", ret);
+        elog(ERROR, "wasm_engine: SPI_connect returned %d", ret);
     }
 
     if ((ret = SPI_exec("SELECT id, wasm_file FROM wasm.instances", 0)) < 0) {
-        elog(ERROR, "wasm_executor: SPI_connect exec query failed: %d", ret);
+        elog(ERROR, "wasm_engine: SPI_connect exec query failed: %d", ret);
     }
     
     if (SPI_tuptable) {

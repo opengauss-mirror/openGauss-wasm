@@ -1,11 +1,12 @@
-CREATE EXTENSION wasm_executor;
+
+CREATE EXTENSION wasm_engine;
 
 SELECT wasm_new_instance('/home/opengauss/encrypt_decrypt.wasm', 'gs');
 
 CREATE TABLE users (
-username TEXT PRIMARY KEY,
-email TEXT,
-passwd TEXT
+    username TEXT PRIMARY KEY,
+    email TEXT,
+    passwd TEXT
 );
 
 CREATE TABLE secrets(secret text);

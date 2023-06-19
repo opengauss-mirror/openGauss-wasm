@@ -1,0 +1,2 @@
+gsql -d opengauss -e -c 'CREATE EXTENSION wasm_engine;'
+

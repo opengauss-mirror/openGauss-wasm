@@ -1,10 +1,10 @@
 # contrib/wasm/Makefile
 
-MODULE_big = wasm_executor
-OBJS= wasm_executor.o
+MODULE_big = wasm_engine
+OBJS= wasm_engine.o
 
-EXTENSION = wasm_executor
-DATA = wasm_executor--1.0.sql
+EXTENSION = wasm_engine
+DATA = wasm_engine--1.0.sql
 
 SHLIB_LINK_INTERNAL = $(libpq)
 SHLIB_LINK += -lwasmedge

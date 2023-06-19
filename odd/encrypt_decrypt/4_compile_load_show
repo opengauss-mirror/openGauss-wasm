@@ -1,0 +1,18 @@
+set -e
+
+cat ./src/lib.rs
+echo "cargo build --release --target wasm32-unknown-unknown"
+cargo build --release --target wasm32-unknown-unknown
+
+echo "wasm-opt -Os  target/wasm32-unknown-unknown/release/opengauss_encrypt_decrypt.wasm  -o encrypt_decrypt.wasm"
+wasm-opt -Os  target/wasm32-unknown-unknown/release/opengauss_encrypt_decrypt.wasm  -o encrypt_decrypt.wasm
+
+gsql -d opengauss -e -c "SELECT wasm_new_instance('/home/opengauss/odd/encrypt_decrypt/encrypt_decrypt.wasm', 'gs');"
+
+gsql -d opengauss -e -c "select * from wasm.exported_functions;"
+
+
+
+
+
+
